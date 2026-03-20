@@ -25,4 +25,8 @@
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="9.0.6" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\FunDto\FunDto.csproj" />
+  </ItemGroup>
+
 </Project>
