@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudPay - товары</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .navbar {
+            background-color: #2c3e50;
+            padding: 1rem 2rem;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            white-space: nowrap;
+            position: relative;
+        }
+        
+        .nav-links a:hover {
+            background-color: #34495e;
+        }
+        
+        .nav-links a.active {
+            background-color: #3498db;
+        }
+        
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: #e74c3c;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 12px;
+            min-width: 18px;
+            text-align: center;
+        }
+        
+        .logout-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 16px;
+        }
+        
+        .logout-btn:hover {
+            background-color: #c0392b;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .filters-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .search-box {
+            margin-bottom: 15px;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-row select, .filter-row button {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .filter-row button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .filter-row button:hover {
+            background-color: #2980b9;
+        }
+        
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .product-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .product-image {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            background-color: #f0f0f0;
+        }
+        
+        .product-info {
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+        
+        .product-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+        
+        .product-description {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        
+        .product-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        
+        .product-category {
+            background-color: #e0e0e0;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: #2c3e50;
+        }
+        
+        .product-price {
+            font-size: 20px;
+            font-weight: 700;
+            color: #27ae60;
+        }
+        
+        .product-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+            padding-top: 10px;
+            border-top: 1px solid #ecf0f1;
+        }
+        
+        .product-seller {
+            font-size: 13px;
+            color: #95a5a6;
+        }
+        
+        .favorite-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #e74c3c;
+            transition: transform 0.2s;
+        }
+        
+        .favorite-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .product-actions {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        
+        .buy-btn {
+            width: 100%;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .buy-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .buy-btn.added {
+            background-color: #27ae60;
+        }
+        
+        .buy-btn.added:hover {
+            background-color: #229954;
+        }
+        
+        .no-products {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #7f8c8d;
+            grid-column: 1 / -1;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h2>📚 StudPay</h2>
+        <div class="nav-links">
+            <a href="profile.html">Профиль</a>
+            <a href="shop.html" class="active">Товары</a>
+            <a href="my-listings.html">Мои объявления</a>
+            <a href="shop.html?page=favorites" id="favoritesLink">Избранное</a>
+            <a href="cart.html" id="cartLink">
+                🛒 Корзина
+                <span id="cartBadge" class="cart-badge" style="display: none;">0</span>
+            </a>
+            <button class="logout-btn" onclick="logout()">Выйти</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="filters-section" id="filters-section">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 Поиск по названию и описанию..." oninput="filterProducts()">
+            </div>
+            
+            <div class="filter-row">
+                <select id="categoryFilter" onchange="filterProducts()">
+                    <option value="all">Все курсы</option>
+                    <option value="1 курс">1 курс</option>
+                    <option value="2 курс">2 курс</option>
+                    <option value="3 курс">3 курс</option>
+                    <option value="4 курс">4 курс</option>
+                </select>
+                
+                <select id="typeFilter" onchange="filterProducts()">
+                    <option value="all">Все типы</option>
+                    <option value="лабораторные">Лабораторные</option>
+                    <option value="курсовые">Курсовые</option>
+                    <option value="практики">Практики</option>
+                    <option value="дипломы">Дипломы</option>
+                    <option value="учебники">Учебники</option>
+                </select>
+                
+                <select id="sortFilter" onchange="filterProducts()">
+                    <option value="date_desc">Сначала новые</option>
+                    <option value="date_asc">Сначала старые</option>
+                    <option value="price_asc">Сначала дешевые</option>
+                    <option value="price_desc">Сначала дорогие</option>
+                </select>
+            </div>
+        </div>
+        
+        <div id="productsContainer" class="products-grid">
+            <!-- Товары будут загружаться сюда -->
+        </div>
+    </div>
+
+    <script>
+        // Демо-товары для примера (всегда доступны)
+        const demoProducts = [
+            {
+                id: 1,
+                name: 'Учебник по мат. анализу 1 курс',
+                description: 'Высшая математика, линейная алгебра, аналитическая геометрия. Состояние отличное',
+                price: 900,
+                category: '1 курс',
+                type: 'учебники',
+                date: '2026-03-15',
+                image: 'https://avatars.mds.yandex.net/get-marketpic/16279129/piccb080f0ee1dd31766ced51aeae85c96a/orig',
+                seller: 'Иван П.'
+            },
+            {
+                id: 2,
+                name: 'Лабораторная работа по компьютерной графике',
+                description: 'Готовая лаба по комп. графике, все расчеты и выводы',
+                price: 1000,
+                category: '3 курс',
+                type: 'лабораторные',
+                date: '2026-03-14',
+                image: 'https://avatars.mds.yandex.net/i?id=bff5fbe586af0b8247542db28b2db6d7_l-5234434-images-thumbs&n=13',
+                seller: 'Мария С.'
+            },
+            {
+                id: 3,
+                name: 'Курсовая по программированию',
+                description: 'Веб-приложение на React + Node.js, полный код и пояснения',
+                price: 5000,
+                category: '3 курс',
+                type: 'курсовые',
+                date: '2026-03-13',
+                image: 'https://www.angularspace.com/content/images/2024/07/GPYrUf8bMAAxaHu--1--1.jpg',
+                seller: 'Алексей К.'
+            },
+            {
+                id: 4,
+                name: 'Дипломная работа "ИИ в образовании"',
+                description: 'Готовая дипломная работа, 80 страниц, презентация, речь',
+                price: 7000,
+                category: '4 курс',
+                type: 'дипломы',
+                date: '2026-03-12',
+                image: 'https://ic.pics.livejournal.com/alex_nevz/89963941/567382/567382_800.png',
+                seller: 'Елена В.'
+            },
+            {
+                id: 5,
+                name: 'Отчет по практике',
+                description: 'Производственная практика в IT компании, дневник и отчет',
+                price: 1300,
+                category: '3 курс',
+                type: 'практики',
+                date: '2026-03-11',
+                image: 'https://cf.ppt-online.org/files/slide/6/6M3KguJXpFiI8UrBRxfjTva50HsYDGb7cZVSO1/slide-2.jpg',
+                seller: 'Дмитрий Н.'
+            },
+            {
+                id: 6,
+                name: 'Лабораторная по физике',
+                description: 'Полностью оформленная работа',
+                price: 400,
+                category: '1 курс',
+                type: 'лабораторные',
+                date: '2026-03-10',
+                image: 'https://avatars.mds.yandex.net/i?id=623f208ab21a10188f935435769b7608_l-5877226-images-thumbs&n=13',
+                seller: 'Анна М.'
+            }
+        ];
+
+        // Объединенный список всех товаров (демо + одобренные из localStorage)
+        let allProducts = [...demoProducts];
+        
+        // Избранное (хранится в localStorage)
+        let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+        
+        // Корзина (хранится в localStorage)
+        let cart = JSON.parse(localStorage.getItem('cart')) || [];
+
+        window.onload = function() {
+            loadUserProducts();
+            updateCartBadge();
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const page = urlParams.get('page');
+            
+            if (page === 'favorites') {
+                document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+                document.getElementById('favoritesLink').classList.add('active');
+                document.getElementById('filters-section').style.display = 'none';
+                showFavorites();
+            } else {
+                document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+                document.querySelector('.nav-links a[href="shop.html"]').classList.add('active');
+                document.getElementById('filters-section').style.display = 'block';
+                displayProducts(allProducts);
+            }
+        };
+
+        function loadUserProducts() {
+            // Загружаем объявления пользователей из localStorage
+            const userListings = JSON.parse(localStorage.getItem('listings')) || [];
+            
+            // Фильтруем только одобренные
+            const approvedListings = userListings.filter(listing => listing.status === 'approved');
+            
+            // Добавляем их к демо-товарам
+            allProducts = [...demoProducts, ...approvedListings];
+        }
+
+        function updateCartBadge() {
+            const badge = document.getElementById('cartBadge');
+            if (cart.length > 0) {
+                badge.style.display = 'inline-block';
+                badge.textContent = cart.length;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        function filterProducts() {
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+            const category = document.getElementById('categoryFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            const sort = document.getElementById('sortFilter').value;
+
+            let filtered = allProducts.filter(product => {
+                const matchesSearch = product.name.toLowerCase().includes(searchText) || 
+                                     (product.description || '').toLowerCase().includes(searchText);
+                const matchesCategory = category === 'all' || product.category === category;
+                const matchesType = type === 'all' || product.type === type;
+                
+                return matchesSearch && matchesCategory && matchesType;
+            });
+
+            if (sort === 'price_asc') {
+                filtered.sort((a, b) => a.price - b.price);
+            } else if (sort === 'price_desc') {
+                filtered.sort((a, b) => b.price - a.price);
+            } else if (sort === 'date_desc') {
+                filtered.sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0));
+            } else if (sort === 'date_asc') {
+                filtered.sort((a, b) => new Date(a.date || a.createdAt || 0) - new Date(b.date || b.createdAt || 0));
+            }
+
+            displayProducts(filtered);
+        }
+
+        function displayProducts(productsToShow) {
+            const container = document.getElementById('productsContainer');
+            
+            if (productsToShow.length === 0) {
+                container.innerHTML = '<div class="no-products">😕 Товары не найдены</div>';
+                return;
+            }
+            
+            container.innerHTML = productsToShow.map(product => {
+                const isFavorite = favorites.some(f => f.id === product.id);
+                const isInCart = cart.some(item => item.id === product.id);
+                
+                return `
+                    <div class="product-card">
+                        <img src="${product.image || 'https://via.placeholder.com/280x180?text=Нет+фото'}" 
+                             alt="${product.name}" 
+                             class="product-image"
+                             onerror="this.src='https://via.placeholder.com/280x180?text=Ошибка'">
+                        <div class="product-info">
+                            <div class="product-name">${product.name}</div>
+                            <div class="product-description">${product.description || 'Нет описания'}</div>
+                            <div class="product-meta">
+                                <span class="product-category">${product.category} • ${product.type}</span>
+                                <span class="product-price">${product.price} ₽</span>
+                            </div>
+                            <div class="product-footer">
+                                <span class="product-seller">👤 ${product.seller || 'Продавец'}</span>
+                                <button class="favorite-btn" onclick="toggleFavorite(${product.id})">
+                                    ${isFavorite ? '❤️' : '🤍'}
+                                </button>
+                            </div>
+                            <div class="product-actions">
+                                <button class="buy-btn ${isInCart ? 'added' : ''}" onclick="toggleCart(${product.id})">
+                                    ${isInCart ? '✓ В корзине' : 'Купить'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showFavorites() {
+            const favoritesToShow = allProducts.filter(product => 
+                favorites.some(f => f.id === product.id)
+            );
+            displayProducts(favoritesToShow);
+        }
+
+        function toggleFavorite(productId) {
+            const product = allProducts.find(p => p.id === productId);
+            const index = favorites.findIndex(f => f.id === productId);
+            
+            if (index === -1) {
+                favorites.push(product);
+            } else {
+                favorites.splice(index, 1);
+            }
+            
+            localStorage.setItem('favorites', JSON.stringify(favorites));
+            
+            // Обновляем отображение в зависимости от текущей страницы
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('page') === 'favorites') {
+                showFavorites();
+            } else {
+                filterProducts();
+            }
+        }
+
+        function toggleCart(productId) {
+            const product = allProducts.find(p => p.id === productId);
+            const index = cart.findIndex(item => item.id === productId);
+            
+            if (index === -1) {
+                cart.push({...product, quantity: 1});
+            } else {
+                cart.splice(index, 1);
+            }
+            
+            localStorage.setItem('cart', JSON.stringify(cart));
+            updateCartBadge();
+            filterProducts(); // Обновляем отображение кнопок
+        }
+
+        function logout() {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
