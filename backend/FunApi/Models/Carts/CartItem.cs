@@ -4,9 +4,9 @@ namespace FunApi.Models.Carts
 {
     public class CartItem
     {
-        public long Id { get; set; }
-        public long CartId { get; set; }
-        public long AdvertisementId { get; set; }
+        public int Id { get; set; }
+        public int CartId { get; set; }
+        public int AdvertisementId { get; set; }
         public DateTime CreatedAt { get; set; }
 
         public Cart Cart { get; set; } = null!;
