@@ -1,6 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
+﻿using FunApi.Models.Advertisements;
+using FunApi.Models.Auth;
+using FunApi.Models.Carts;
+using FunApi.Models.Chats;
+using FunApi.Models.Favorites;
+using FunApi.Models.Notifications;
+using FunApi.Models.Orders;
+using FunApi.Models.Users;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 
@@ -25,8 +33,85 @@ namespace FunApi.Models
             _configuration = configuration;
         }
 
+        // Users
         public DbSet<User> Users => Set<User>();
+        public DbSet<Role> Roles => Set<Role>();
+        public DbSet<University> Universities => Set<University>();
+        public DbSet<Faculty> Faculties => Set<Faculty>();
 
+        // Advertisements
+        public DbSet<Category> Categories => Set<Category>();
+        public DbSet<Advertisement> Advertisements => Set<Advertisement>();
+        public DbSet<AdvertisementImage> AdvertisementImages => Set<AdvertisementImage>();
+        public DbSet<AdvertisementStatus> AdvertisementStatuses => Set<AdvertisementStatus>();
+        public DbSet<AdvertisementModeration> AdvertisementModerations => Set<AdvertisementModeration>();
+
+        // Favorites
+        public DbSet<Favorite> Favorites => Set<Favorite>();
+
+        // Cart
+        public DbSet<Cart> Carts => Set<Cart>();
+        public DbSet<CartItem> CartItems => Set<CartItem>();
+
+        // Orders
+        public DbSet<Order> Orders => Set<Order>();
+        public DbSet<OrderStatus> OrderStatuses => Set<OrderStatus>();
+        public DbSet<Review> Reviews => Set<Review>();
+
+        // Chats
+        public DbSet<Chat> Chats => Set<Chat>();
+        public DbSet<Message> Messages => Set<Message>();
+
+        // Notifications
+        public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<NotificationType> NotificationTypes => Set<NotificationType>();
+
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
+
+            modelBuilder.Entity<Order>()
+                .HasOne(o => o.Buyer)
+                .WithMany(u => u.BuyerOrders)
+                .HasForeignKey(o => o.BuyerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Order>()
+                .HasOne(o => o.Seller)
+                .WithMany(u => u.SellerOrders)
+                .HasForeignKey(o => o.SellerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Chat>()
+                .HasOne(c => c.Buyer)
+                .WithMany(u => u.BuyerChats)
+                .HasForeignKey(c => c.BuyerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Chat>()
+                .HasOne(c => c.Seller)
+                .WithMany(u => u.SellerChats)
+                .HasForeignKey(c => c.SellerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Cart>()
+                .HasOne(c => c.User)
+                .WithOne(u => u.Cart)
+                .HasForeignKey<Cart>(c => c.UserId);
+
+            modelBuilder.Entity<Favorite>()
+                .HasIndex(f => new { f.UserId, f.AdvertisementId })
+                .IsUnique();
+
+            modelBuilder.Entity<CartItem>()
+                .HasIndex(ci => new { ci.CartId, ci.AdvertisementId })
+                .IsUnique();
+        }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

@@ -1,11 +1,11 @@
-﻿using FunApi.Models;
+using FunApi.Interfaces;
+using FunApi.Models;
 using FunApi.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.CookiePolicy;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using System.Threading.RateLimiting;
 
 namespace FunApi
 {
@@ -17,8 +17,10 @@ namespace FunApi
 
             var isDevelopment = builder.Environment.IsDevelopment();
 
-
-            builder.Services.AddControllers();
+            builder.Services.AddControllers(options =>
+            {
+                options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+            });
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
@@ -26,29 +28,32 @@ namespace FunApi
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             builder.Services.AddHttpContextAccessor();
-
+            builder.Services.AddScoped<IAuthService, AuthService>();
+            builder.Services.AddScoped<IUserService, UserService>();
 
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
                 {
                     options.Cookie.Name = ".AspNetCore.Cookies";
                     options.Cookie.HttpOnly = true;
-
                     options.Cookie.SecurePolicy = isDevelopment
                         ? CookieSecurePolicy.None
                         : CookieSecurePolicy.Always;
-
                     options.Cookie.SameSite = SameSiteMode.None;
-
                     options.ExpireTimeSpan = TimeSpan.FromDays(30);
                     options.SlidingExpiration = true;
-
                     options.Events.OnRedirectToLogin = ctx =>
                     {
-                        ctx.Response.StatusCode = 401;
+                        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        return Task.CompletedTask;
+                    };
+                    options.Events.OnRedirectToAccessDenied = ctx =>
+                    {
+                        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
                         return Task.CompletedTask;
                     };
                 });
+            builder.Services.AddAuthorization();
 
             builder.Services.AddCors(options =>
             {
@@ -59,15 +64,34 @@ namespace FunApi
                         .AllowAnyMethod()
                         .AllowAnyHeader()
                         .AllowCredentials();
-
                 });
             });
 
             builder.Services.AddAntiforgery(options =>
             {
+                options.Cookie.Name = "__Host-antiforgery";
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SameSite = SameSiteMode.None;
+                options.Cookie.SecurePolicy = isDevelopment
+                    ? CookieSecurePolicy.None
+                    : CookieSecurePolicy.Always;
                 options.HeaderName = "X-XSRF-TOKEN";
             });
 
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: "global",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 100,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
+            });
 
             builder.Logging.ClearProviders();
             builder.Logging.AddConsole();
@@ -92,7 +116,7 @@ namespace FunApi
             {
                 errorApp.Run(async context =>
                 {
-                    context.Response.StatusCode = 500;
+                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
                     context.Response.ContentType = "application/json";
                     await context.Response.WriteAsJsonAsync(new
                     {
@@ -108,9 +132,7 @@ namespace FunApi
             }
 
             app.UseRouting();
-
             app.UseCors("AllowFrontend");
-
             app.UseAuthentication();
             app.UseAuthorization();
 
