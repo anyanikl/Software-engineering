@@ -29,6 +29,9 @@ appsettings.*.json
 !appsettings.json
 !appsettings.Development.json
 
+*.sentinel
+.workloadAdvertisingManifestSentinel*
+
 .env
 .env.*
 !.env.example
