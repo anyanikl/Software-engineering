@@ -4,11 +4,11 @@ namespace FunApi.Interfaces
 {
     public interface IAdminService
     {
-        Task<UserAdminDto> GetUsersAsync(UserAdminFilterDto filter);
+        Task<List<AdminStatsDto>> GetUsersAsync(UserAdminFilterDto filter);
         Task BlockUserAsync(int adminId, int userId);
         Task UnblockUserAsync(int adminId, int userId);
 
-        Task<AdminStatsDto> GetStatsAsync();
+        Task<UserAdminDto> GetStatsAsync();
         Task<string> ExportUsersCsvAsync();
         Task<string> ExportUsersJsonAsync();
     }

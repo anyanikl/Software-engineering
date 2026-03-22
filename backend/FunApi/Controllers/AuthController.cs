@@ -87,6 +87,80 @@ namespace FunApi.Controllers
             return Ok(ToContract(result.User));
         }
 
+        [HttpPost("register")]
+        [AllowAnonymous]
+        public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterRequestDto request, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            var result = await _authService.RegisterAsync(new RegisterInternalDto
+            {
+                Email = request.Email,
+                Password = request.Password,
+                ConfirmPassword = request.ConfirmPassword,
+                FullName = request.FullName,
+                PhoneNumber = request.Phone,
+                University = request.University,
+                Faculty = request.Faculty
+            }, cancellationToken);
+
+            if (!result.IsSuccess || result.User is null)
+            {
+                return BadRequest(new AuthResponseDto
+                {
+                    IsSuccess = false,
+                    Errors = result.Errors
+                });
+            }
+
+            return Ok(ToContract(result.User));
+        }
+
+        [HttpPost("forgot-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            await _authService.RequestPasswordResetAsync(request.Email, cancellationToken);
+            return NoContent();
+        }
+
+        [HttpPost("reset-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            try
+            {
+                await _authService.ResetPasswordAsync(
+                    request.Token,
+                    request.NewPassword,
+                    request.ConfirmPassword,
+                    cancellationToken);
+
+                return NoContent();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
         [HttpPost("logout")]
         [Authorize]
         public async Task<IActionResult> Logout(CancellationToken cancellationToken)
@@ -114,7 +188,7 @@ namespace FunApi.Controllers
                 return Unauthorized(new AuthResponseDto
                 {
                     IsSuccess = false,
-                    Errors = new List<string> { "Сессия невалидна" }
+                    Errors = new List<string> { "Invalid session" }
                 });
             }
 
@@ -125,7 +199,7 @@ namespace FunApi.Controllers
                 return Unauthorized(new AuthResponseDto
                 {
                     IsSuccess = false,
-                    Errors = new List<string> { "Пользователь не найден" }
+                    Errors = new List<string> { "User not found" }
                 });
             }
 

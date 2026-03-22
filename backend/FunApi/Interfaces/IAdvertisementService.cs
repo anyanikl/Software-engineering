@@ -5,8 +5,8 @@ namespace FunApi.Interfaces
     public interface IAdvertisementService
     {
         Task<AdvertisementDto> GetByIdAsync(int advertisementId);
-        Task<AdvertisementCardDto> GetAllAsync(AdvertisementFilterDto filter);
-        Task<AdvertisementCardDto> SearchAsync(AdvertisementFilterDto filter);
+        Task<List<AdvertisementCardDto>> GetAllAsync(AdvertisementFilterDto filter);
+        Task<List<AdvertisementCardDto>> SearchAsync(AdvertisementFilterDto filter);
 
         Task<AdvertisementDto> CreateAsync(int sellerId, CreateAdvertisementDto dto);
         Task<AdvertisementDto> UpdateAsync(int sellerId, int advertisementId, UpdateAdvertisementDto dto);

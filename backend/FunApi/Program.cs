@@ -30,6 +30,15 @@ namespace FunApi
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IAdvertisementService, AdvertisementService>();
+            builder.Services.AddScoped<IFavoriteService, FavoriteService>();
+            builder.Services.AddScoped<ICartService, CartService>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
+            builder.Services.AddScoped<IOrderService, OrderService>();
+            builder.Services.AddScoped<IReviewService, ReviewService>();
+            builder.Services.AddScoped<IChatService, ChatService>();
+            builder.Services.AddScoped<IModerationService, ModerationService>();
+            builder.Services.AddScoped<IAdminService, AdminService>();
 
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
