@@ -7,6 +7,17 @@ obj/
 *.sln.docstates
 
 .idea/
+*.sln.iml
+
+.vscode/
+
+.codex/
+.codex-dotnet/
+.codex-dotnet/dotnet/
+
+*.codex
+*.ai
+*.cache/
 
 *.exe
 *.dll
@@ -18,23 +29,25 @@ appsettings.*.json
 !appsettings.json
 !appsettings.Development.json
 
+.env
+.env.*
+!.env.example
+
 node_modules/
 dist/
 build/
 .vite/
 *.tsbuildinfo
 
-.env
-.env.*
-!.env.example
-
 docker-compose.override.yml
 
 logs/
 *.log
+*.tmp
+*.temp
 
 coverage/
 TestResults/
 
-*.tmp
-*.temp
+.DS_Store
+Thumbs.db
