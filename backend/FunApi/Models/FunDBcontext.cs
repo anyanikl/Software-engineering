@@ -111,6 +111,18 @@ namespace FunApi.Models
             modelBuilder.Entity<CartItem>()
                 .HasIndex(ci => new { ci.CartId, ci.AdvertisementId })
                 .IsUnique();
+
+            modelBuilder.Entity<Review>()
+                .HasOne(r => r.Author)
+                .WithMany(u => u.WrittenReviews)
+                .HasForeignKey(r => r.AuthorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Review>()
+                .HasOne(r => r.TargetUser)
+                .WithMany(u => u.ReceivedReviews)
+                .HasForeignKey(r => r.TargetUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

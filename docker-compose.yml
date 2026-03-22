@@ -1,6 +1,6 @@
 services:
   backend:
-    build: ./FunApi
+    build: ./backend
     container_name: fun-backend-dev
     ports:
       - "8080:8080"
@@ -14,21 +14,21 @@ services:
     networks:
       - fun-net
 
-  frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    container_name: fun-frontend-dev
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-    environment:
-      - VITE_API_URL=${VITE_API_URL}
-    depends_on:
-      - backend
-    networks:
-      - fun-net
+  # frontend:
+  #   build:
+  #     context: .
+  #     dockerfile: frontend/Dockerfile
+  #   container_name: fun-frontend-dev
+  #   ports:
+  #     - "3000:3000"
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - VITE_API_URL=${VITE_API_URL}
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - fun-net
 
   db:
     image: postgres:15
@@ -59,7 +59,7 @@ services:
       - ./certs:/etc/ssl/certs
     depends_on:
       - backend
-      - frontend
+      # - frontend
     networks:
       - fun-net
 

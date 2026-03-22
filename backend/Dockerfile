@@ -7,7 +7,7 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
 COPY ["FunApi/FunApi.csproj", "FunApi/"]
-COPY ["Fundto/Fundto.csproj", "Fundto/"]
+COPY ["FunDto/FunDto.csproj", "FunDto/"]
 
 RUN dotnet restore "FunApi/FunApi.csproj"
 
