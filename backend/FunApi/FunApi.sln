@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FunApi", "FunApi.csproj", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FunDto", "..\FunDto\FunDto.csproj", "{03170909-28E5-4BDC-929A-3DF96965B962}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FunTest", "..\FunTest\FunTest.csproj", "{EDDBA833-264A-4480-A1B9-CB4ADB40B591}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,6 +26,10 @@ Global
 		{03170909-28E5-4BDC-929A-3DF96965B962}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{03170909-28E5-4BDC-929A-3DF96965B962}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{03170909-28E5-4BDC-929A-3DF96965B962}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EDDBA833-264A-4480-A1B9-CB4ADB40B591}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EDDBA833-264A-4480-A1B9-CB4ADB40B591}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EDDBA833-264A-4480-A1B9-CB4ADB40B591}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EDDBA833-264A-4480-A1B9-CB4ADB40B591}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
