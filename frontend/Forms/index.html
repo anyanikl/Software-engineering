@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudPay - Вход и регистрация</title>
+    <!-- Подключаем внешний CSS файл -->
+    <link rel="stylesheet" href="css/index.css">
+</head>
+<body>
+    <div class="container">
+        <h2>📚 StudPay</h2>
+        
+        <div class="demo-credentials">
+            <strong>Демо-доступ:</strong> admin@university.ru / admin123
+        </div>
+        
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('login')">Вход</div>
+            <div class="tab" onclick="switchTab('register')">Регистрация</div>
+        </div>
+        
+        <!-- ФОРМА ВХОДА -->
+        <div id="loginForm">
+            <div>
+                <label for="loginEmail"><b>Email:</b></label>
+                <input type="email" id="loginEmail" placeholder="user@university.ru" value="admin@university.ru">
+            </div>
+            <div>
+                <label for="loginPassword"><b>Пароль:</b></label>
+                <input type="password" id="loginPassword" placeholder="••••••••" value="admin123">
+            </div>
+            <button onclick="login()">Войти</button>
+            
+            <div class="forgot-password">
+                <a onclick="showForgotPassword()">Забыли пароль?</a>
+            </div>
+        </div>
+        
+        <!-- ФОРМА РЕГИСТРАЦИИ -->
+        <div id="registerForm" style="display: none;">
+            <div>
+                <label for="regEmail"><b>Email (только университетский):</b></label>
+                <input type="email" id="regEmail" placeholder="student@university.ru">
+                <div class="university-domain">Допустимые домены: .edu, .ac.ru, .university.ru, .kpfu</div>
+            </div>
+            <div>
+                <label for="regFullName"><b>ФИО:</b></label>
+                <input type="text" id="regFullName" placeholder="Иванов Иван Иванович">
+            </div>
+            <div>
+                <label for="regPhone"><b>Номер телефона:</b></label>
+                <input type="tel" id="regPhone" placeholder="+7 (999) 123-45-67">
+            </div>
+            <div>
+                <label for="regUniversity"><b>Университет:</b></label>
+                <!-- ТЕПЕРЬ ЗДЕСЬ ПУСТОЙ SELECT, ДАННЫЕ БУДУТ ЗАГРУЖАТЬСЯ ИЗ JSON -->
+                <select id="regUniversity">
+                    <option value="">Загрузка университетов...</option>
+                </select>
+            </div>
+            <div>
+                <label for="regFaculty"><b>Факультет:</b></label>
+                <!-- ДАННЫЕ БУДУТ ЗАГРУЖАТЬСЯ ИЗ JSON -->
+                <select id="regFaculty">
+                    <option value="">Загрузка факультетов...</option>
+                </select>
+            </div>
+            <div>
+                <label for="regPassword"><b>Пароль:</b></label>
+                <input type="password" id="regPassword" placeholder="••••••••">
+                <div class="password-hint">Минимум 8 символов, буквы и цифры</div>
+            </div>
+            <div>
+                <label for="regConfirmPassword"><b>Подтверждение пароля:</b></label>
+                <input type="password" id="regConfirmPassword" placeholder="••••••••">
+            </div>
+            <button onclick="register()">Зарегистрироваться</button>
+        </div>
+        
+        <!-- ФОРМА ВОССТАНОВЛЕНИЯ ПАРОЛЯ -->
+        <div id="forgotPasswordForm" style="display: none;">
+            <h3 style="text-align: center; margin-bottom: 20px;">Восстановление пароля</h3>
+            <div>
+                <label for="recoveryEmail"><b>Email:</b></label>
+                <input type="email" id="recoveryEmail" placeholder="user@university.ru">
+            </div>
+            <button onclick="sendRecovery()">Отправить инструкцию</button>
+            <button onclick="showLoginForm()" style="background-color: #95a5a6; margin-top: 10px;">Назад ко входу</button>
+        </div>
+        
+        <div class="info">
+            Платформа для студентов. Только университетская почта
+        </div>
+    </div>
+
+    <!-- Подключаем конфигурацию API -->
+    <script src="js/api-config_index.js"></script>
+
+    <!-- Подключаем основной скрипт -->
+    <script src="js/script_index.js"></script>
+</body>
+</html>
