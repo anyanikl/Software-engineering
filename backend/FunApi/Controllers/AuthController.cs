@@ -16,16 +16,13 @@ namespace FunApi.Controllers
     {
         private readonly IAuthService _authService;
         private readonly IAntiforgery _antiforgery;
-        private readonly IWebHostEnvironment _environment;
 
         public AuthController(
             IAuthService authService,
-            IAntiforgery antiforgery,
-            IWebHostEnvironment environment)
+            IAntiforgery antiforgery)
         {
             _authService = authService;
             _antiforgery = antiforgery;
-            _environment = environment;
         }
 
         [HttpGet("csrf")]
@@ -43,8 +40,9 @@ namespace FunApi.Controllers
             {
                 HttpOnly = false,
                 IsEssential = true,
-                SameSite = SameSiteMode.None,
-                Secure = !_environment.IsDevelopment()
+                Path = "/",
+                SameSite = SameSiteMode.Lax,
+                Secure = HttpContext.Request.IsHttps
             });
 
             return Ok(new CsrfTokenDto { Token = tokens.RequestToken });
@@ -170,8 +168,16 @@ namespace FunApi.Controllers
 
             Response.Cookies.Delete("XSRF-TOKEN", new CookieOptions
             {
-                SameSite = SameSiteMode.None,
-                Secure = !_environment.IsDevelopment()
+                Path = "/",
+                SameSite = SameSiteMode.Lax,
+                Secure = HttpContext.Request.IsHttps
+            });
+
+            Response.Cookies.Delete("antiforgery", new CookieOptions
+            {
+                Path = "/",
+                SameSite = SameSiteMode.Lax,
+                Secure = HttpContext.Request.IsHttps
             });
 
             return NoContent();

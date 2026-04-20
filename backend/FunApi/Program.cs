@@ -2,7 +2,7 @@ using FunApi.Interfaces;
 using FunApi.Models;
 using FunApi.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.CookiePolicy;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.RateLimiting;
@@ -16,8 +16,30 @@ namespace FunApi
             var builder = WebApplication.CreateBuilder(args);
 
             var isDevelopment = builder.Environment.IsDevelopment();
+            var allowedOrigins = builder.Configuration["CORS_ALLOWED_ORIGINS"]?
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(origin => !string.IsNullOrWhiteSpace(origin))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray()
+                ?? new[]
+                {
+                    "http://localhost:3000",
+                    "http://127.0.0.1:3000",
+                    "https://localhost",
+                    "https://127.0.0.1"
+                };
 
-            builder.Services.AddControllers(options =>
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders =
+                    ForwardedHeaders.XForwardedFor |
+                    ForwardedHeaders.XForwardedProto |
+                    ForwardedHeaders.XForwardedHost;
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
+            });
+
+            builder.Services.AddControllersWithViews(options =>
             {
                 options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
             });
@@ -45,10 +67,9 @@ namespace FunApi
                 {
                     options.Cookie.Name = ".AspNetCore.Cookies";
                     options.Cookie.HttpOnly = true;
-                    options.Cookie.SecurePolicy = isDevelopment
-                        ? CookieSecurePolicy.None
-                        : CookieSecurePolicy.Always;
-                    options.Cookie.SameSite = SameSiteMode.None;
+                    options.Cookie.Path = "/";
+                    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+                    options.Cookie.SameSite = SameSiteMode.Lax;
                     options.ExpireTimeSpan = TimeSpan.FromDays(30);
                     options.SlidingExpiration = true;
                     options.Events.OnRedirectToLogin = ctx =>
@@ -69,7 +90,7 @@ namespace FunApi
                 options.AddPolicy("AllowFrontend", policy =>
                 {
                     policy
-                        .WithOrigins("http://localhost:3000")
+                        .WithOrigins(allowedOrigins)
                         .AllowAnyMethod()
                         .AllowAnyHeader()
                         .AllowCredentials();
@@ -78,12 +99,11 @@ namespace FunApi
 
             builder.Services.AddAntiforgery(options =>
             {
-                options.Cookie.Name = "__Host-antiforgery";
+                options.Cookie.Name = "antiforgery";
                 options.Cookie.HttpOnly = true;
-                options.Cookie.SameSite = SameSiteMode.None;
-                options.Cookie.SecurePolicy = isDevelopment
-                    ? CookieSecurePolicy.None
-                    : CookieSecurePolicy.Always;
+                options.Cookie.Path = "/";
+                options.Cookie.SameSite = SameSiteMode.Lax;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
                 options.HeaderName = "X-XSRF-TOKEN";
             });
 
@@ -119,6 +139,7 @@ namespace FunApi
                 app.UseSwaggerUI();
             }
 
+            app.UseForwardedHeaders();
             app.UseRateLimiter();
 
             app.UseExceptionHandler(errorApp =>
@@ -135,16 +156,12 @@ namespace FunApi
                 });
             });
 
-            if (!isDevelopment)
-            {
-                app.UseHttpsRedirection();
-            }
-
             app.UseRouting();
             app.UseCors("AllowFrontend");
             app.UseAuthentication();
             app.UseAuthorization();
 
+            app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
             app.MapControllers();
 
             app.Run();
