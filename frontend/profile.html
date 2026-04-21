@@ -4,398 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StudPay - профиль</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f5f5f5;
-        }
-        
-        .navbar {
-            background-color: #2c3e50;
-            padding: 1rem 2rem;
-            color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        
-        .nav-links a {
-            color: white;
-            text-decoration: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            white-space: nowrap;
-        }
-        
-        .nav-links a:hover {
-            background-color: #34495e;
-        }
-        
-        .nav-links a.active {
-            background-color: #3498db;
-        }
-        
-        .logout-btn {
-            background-color: #e74c3c;
-            color: white;
-            border: none;
-            padding: 5px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            white-space: nowrap;
-            font-size: 16px;
-        }
-        
-        .logout-btn:hover {
-            background-color: #c0392b;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .profile-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        
-        .profile-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .profile-header h2 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-        
-        .rating-display {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        .rating-stars {
-            color: #f1c40f;
-            font-size: 20px;
-        }
-        
-        .rating-value {
-            font-size: 18px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        
-        .rating-count {
-            color: #7f8c8d;
-            font-size: 14px;
-        }
-        
-        .avatar-section {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-        
-        .avatar-preview {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            background-color: #e0e0e0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 48px;
-            color: #7f8c8d;
-            margin-bottom: 15px;
-            overflow: hidden;
-            border: 3px solid #3498db;
-        }
-        
-        .avatar-preview img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .avatar-upload {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        
-        .avatar-upload input[type="file"] {
-            display: none;
-        }
-        
-        .avatar-upload label {
-            background-color: #3498db;
-            color: white;
-            padding: 8px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        
-        .avatar-upload label:hover {
-            background-color: #2980b9;
-        }
-        
-        .avatar-upload button {
-            background-color: #95a5a6;
-            color: white;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        
-        .avatar-upload button:hover {
-            background-color: #7f8c8d;
-        }
-        
-        .profile-form {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        
-        .form-group label {
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        
-        .form-group input, .form-group select {
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-        
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: #3498db;
-        }
-        
-        .form-group input:disabled, .form-group select:disabled {
-            background-color: #f8f9fa;
-            color: #6c757d;
-            cursor: not-allowed;
-        }
-        
-        .profile-actions {
-            display: flex;
-            gap: 15px;
-            justify-content: flex-end;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #ecf0f1;
-        }
-        
-        .profile-actions button {
-            padding: 10px 25px;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        
-        .edit-btn {
-            background-color: #3498db;
-            color: white;
-        }
-        
-        .edit-btn:hover {
-            background-color: #2980b9;
-        }
-        
-        .save-btn {
-            background-color: #27ae60;
-            color: white;
-        }
-        
-        .save-btn:hover {
-            background-color: #229954;
-        }
-        
-        .cancel-btn {
-            background-color: #95a5a6;
-            color: white;
-        }
-        
-        .cancel-btn:hover {
-            background-color: #7f8c8d;
-        }
-        
-        .stats-section {
-            margin-top: 40px;
-            padding-top: 30px;
-            border-top: 2px solid #ecf0f1;
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            margin-top: 20px;
-        }
-        
-        .stat-card {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-        }
-        
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #2c3e50;
-            margin-bottom: 5px;
-        }
-        
-        .stat-label {
-            color: #7f8c8d;
-            font-size: 14px;
-        }
-        
-        .reviews-section {
-            margin-top: 40px;
-        }
-        
-        .reviews-section h3 {
-            color: #2c3e50;
-            margin-bottom: 20px;
-        }
-        
-        .review-card {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-        }
-        
-        .review-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .review-author {
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        
-        .review-rating {
-            color: #f1c40f;
-        }
-        
-        .review-date {
-            font-size: 12px;
-            color: #95a5a6;
-        }
-        
-        .review-text {
-            color: #7f8c8d;
-            line-height: 1.5;
-            margin-bottom: 10px;
-        }
-        
-        .review-product {
-            font-size: 13px;
-            color: #3498db;
-        }
-        
-        .write-review-section {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 30px 0;
-        }
-        
-        .rating-input {
-            display: flex;
-            gap: 10px;
-            margin: 15px 0;
-            font-size: 24px;
-            color: #f1c40f;
-            cursor: pointer;
-        }
-        
-        .rating-input span {
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        
-        .rating-input span:hover {
-            transform: scale(1.2);
-        }
-        
-        .review-textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            min-height: 100px;
-            margin-bottom: 15px;
-            font-family: inherit;
-        }
-        
-        .submit-review-btn {
-            background-color: #27ae60;
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-        
-        .submit-review-btn:hover {
-            background-color: #229954;
-        }
-        
-        .completed-deals-select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            margin-bottom: 15px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/profile.css">
 </head>
 <body>
     <div class="navbar">
@@ -404,7 +13,7 @@
             <a href="profile.html" class="active">Профиль</a>
             <a href="shop.html">Товары</a>
             <a href="my-listings.html">Мои объявления</a>
-            <a href="shop.html?page=favorites">Избранное</a>
+            <a href="favorites.html">❤️ Избранное</a>
             <a href="cart.html">🛒 Корзина</a>
             <a href="chat.html">💬 Чаты</a>
             <button class="logout-btn" onclick="logout()">Выйти</button>
@@ -431,7 +40,7 @@
                 <div class="avatar-upload" id="avatarUploadSection">
                     <input type="file" id="avatarInput" accept="image/*">
                     <label for="avatarInput" id="avatarLabel">Выбрать фото</label>
-                    <button id="clearAvatarBtn" onclick="clearAvatar()" style="display: none;">Удалить</button>
+                    <button id="clearAvatarBtn" onclick="clearAvatar()" style="display: none;">🗑️ Удалить</button>
                 </div>
             </div>
             
@@ -442,18 +51,28 @@
                 </div>
                 
                 <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="emailInput" disabled>
+                </div>
+                
+                <div class="form-group">
                     <label>Номер телефона:</label>
                     <input type="tel" id="phoneInput" disabled>
                 </div>
                 
                 <div class="form-group">
-                    <label>Факультет:</label>
+                    <label>Университет:</label>
+                    <input type="text" id="universityInput" disabled>
+                </div>
+                <div class="form-group">
+                    <label>Направление
                     <select id="facultySelect" disabled>
-                        <option value="Факультет информационных технологий">Факультет информационных технологий</option>
-                        <option value="Факультет экономики">Факультет экономики</option>
-                        <option value="Факультет права">Факультет права</option>
-                        <option value="Факультет медицины">Факультет медицины</option>
-                        <option value="Факультет иностранных языков">Факультет иностранных языков</option>
+                        <option value="">Выберите направление</option>
+                        <option value="Информационные технологии">Информационные технологии</option>
+                        <option value="Экономика">Экономика</option>
+                        <option value="Право">Право</option>
+                        <option value="Медицина">Медицина</option>
+                        <option value="Иностранные языки">Иностранные языки</option>
                     </select>
                 </div>
             </div>
@@ -477,6 +96,10 @@
                         <div class="stat-value" id="activeListings">0</div>
                         <div class="stat-label">Активных товаров</div>
                     </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalDeals">0</div>
+                        <div class="stat-label">Всего сделок</div>
+                    </div>
                 </div>
             </div>
             
@@ -492,300 +115,19 @@
                 </select>
                 
                 <div class="rating-input" id="ratingInput">
-                    <span onclick="setRating(1)">☆</span>
-                    <span onclick="setRating(2)">☆</span>
-                    <span onclick="setRating(3)">☆</span>
-                    <span onclick="setRating(4)">☆</span>
-                    <span onclick="setRating(5)">☆</span>
+                    <span data-rating="1" onclick="setRating(1)">☆</span>
+                    <span data-rating="2" onclick="setRating(2)">☆</span>
+                    <span data-rating="3" onclick="setRating(3)">☆</span>
+                    <span data-rating="4" onclick="setRating(4)">☆</span>
+                    <span data-rating="5" onclick="setRating(5)">☆</span>
                 </div>
                 
                 <textarea id="reviewText" class="review-textarea" placeholder="Напишите ваш отзыв..."></textarea>
-                <button class="submit-review-btn" onclick="submitReview()">Отправить отзыв</button>
+                <button class="submit-review-btn" onclick="submitReview()">📤 Отправить отзыв</button>
             </div>
         </div>
     </div>
 
-    <script>
-        // Данные профиля
-        let profileData = JSON.parse(localStorage.getItem('profileData')) || {
-            id: 1,
-            fullName: 'Иванов Иван Иванович',
-            phone: '+7 (999) 123-45-67',
-            faculty: 'Факультет информационных технологий',
-            avatar: null
-        };
-
-        let currentRating = 0;
-        let isEditing = false;
-
-        window.onload = function() {
-            loadProfileData();
-            loadReviews();
-            loadStats();
-            loadCompletedDeals();
-            initUser();
-        };
-
-        function initUser() {
-            // Сохраняем пользователя в общий список
-            let users = JSON.parse(localStorage.getItem('users')) || [];
-            if (!users.find(u => u.id === profileData.id)) {
-                users.push({
-                    id: profileData.id,
-                    name: profileData.fullName,
-                    email: profileData.email || 'user@example.com',
-                    role: 'user',
-                    registered: new Date().toISOString(),
-                    deals: 0,
-                    rating: 0,
-                    status: 'active',
-                    avatar: profileData.avatar
-                });
-                localStorage.setItem('users', JSON.stringify(users));
-            }
-        }
-
-        function loadProfileData() {
-            document.getElementById('fullNameInput').value = profileData.fullName;
-            document.getElementById('phoneInput').value = profileData.phone;
-            document.getElementById('facultySelect').value = profileData.faculty;
-            
-            const avatarPreview = document.getElementById('avatarPreview');
-            if (profileData.avatar) {
-                avatarPreview.innerHTML = `<img src="${profileData.avatar}" alt="Avatar">`;
-            } else {
-                avatarPreview.innerHTML = '📷';
-            }
-        }
-
-        function loadReviews() {
-            const reviews = JSON.parse(localStorage.getItem('reviews')) || [];
-            const myReviews = reviews.filter(r => r.sellerId === profileData.id);
-            
-            // Обновляем рейтинг
-            if (myReviews.length > 0) {
-                const avgRating = myReviews.reduce((sum, r) => sum + r.rating, 0) / myReviews.length;
-                document.getElementById('ratingValue').textContent = avgRating.toFixed(1);
-                document.getElementById('ratingStars').textContent = getStars(avgRating);
-                document.getElementById('ratingCount').textContent = `(${myReviews.length} отзывов)`;
-            }
-            
-            // Отображаем отзывы
-            const reviewsList = document.getElementById('reviewsList');
-            if (myReviews.length === 0) {
-                reviewsList.innerHTML = '<p style="color: #95a5a6; text-align: center;">Пока нет отзывов</p>';
-            } else {
-                reviewsList.innerHTML = myReviews.sort((a, b) => new Date(b.date) - new Date(a.date)).map(review => `
-                    <div class="review-card">
-                        <div class="review-header">
-                            <span class="review-author">${review.authorName}</span>
-                            <span class="review-rating">${'★'.repeat(review.rating)}${'☆'.repeat(5-review.rating)}</span>
-                            <span class="review-date">${new Date(review.date).toLocaleDateString()}</span>
-                        </div>
-                        <div class="review-text">${review.text}</div>
-                        <div class="review-product">Товар: ${review.productName}</div>
-                    </div>
-                `).join('');
-            }
-        }
-
-        function loadStats() {
-            const listings = JSON.parse(localStorage.getItem('listings')) || [];
-            const deals = JSON.parse(localStorage.getItem('deals')) || [];
-            
-            const myListings = listings.filter(l => l.seller === profileData.fullName);
-            const mySales = deals.filter(d => d.sellerId === profileData.id);
-            const myPurchases = deals.filter(d => d.buyerId === profileData.id);
-            
-            document.getElementById('activeListings').textContent = myListings.filter(l => l.status === 'approved').length;
-            document.getElementById('totalSales').textContent = mySales.length;
-            document.getElementById('totalPurchases').textContent = myPurchases.length;
-        }
-
-        function loadCompletedDeals() {
-            const deals = JSON.parse(localStorage.getItem('deals')) || [];
-            const completedDeals = deals.filter(d => d.buyerId === profileData.id && d.status === 'completed');
-            
-            const select = document.getElementById('completedDeals');
-            select.innerHTML = '<option value="">Выберите завершенную сделку</option>';
-            
-            completedDeals.forEach(deal => {
-                const option = document.createElement('option');
-                option.value = deal.id;
-                option.textContent = `${deal.productName} - ${new Date(deal.completedDate).toLocaleDateString()}`;
-                select.appendChild(option);
-            });
-            
-            // Показываем секцию только если есть завершенные сделки
-            if (completedDeals.length > 0) {
-                document.getElementById('writeReviewSection').style.display = 'block';
-            }
-        }
-
-        function getStars(rating) {
-            const fullStars = Math.floor(rating);
-            const halfStar = rating % 1 >= 0.5;
-            let stars = '';
-            
-            for (let i = 0; i < fullStars; i++) stars += '★';
-            if (halfStar) stars += '½';
-            for (let i = 0; i < 5 - fullStars - (halfStar ? 1 : 0); i++) stars += '☆';
-            
-            return stars;
-        }
-
-        function setRating(rating) {
-            currentRating = rating;
-            const stars = document.querySelectorAll('.rating-input span');
-            stars.forEach((star, index) => {
-                star.textContent = index < rating ? '★' : '☆';
-            });
-        }
-
-        function submitReview() {
-            const dealId = document.getElementById('completedDeals').value;
-            const text = document.getElementById('reviewText').value;
-            
-            if (!dealId) {
-                alert('Выберите сделку');
-                return;
-            }
-            if (currentRating === 0) {
-                alert('Поставьте оценку');
-                return;
-            }
-            if (!text.trim()) {
-                alert('Напишите отзыв');
-                return;
-            }
-            
-            const deals = JSON.parse(localStorage.getItem('deals')) || [];
-            const deal = deals.find(d => d.id == dealId);
-            
-            const reviews = JSON.parse(localStorage.getItem('reviews')) || [];
-            
-            const review = {
-                id: Date.now(),
-                sellerId: deal.sellerId,
-                productId: deal.productId,
-                productName: deal.productName,
-                authorId: profileData.id,
-                authorName: profileData.fullName,
-                rating: currentRating,
-                text: text,
-                date: new Date().toISOString()
-            };
-            
-            reviews.push(review);
-            localStorage.setItem('reviews', JSON.stringify(reviews));
-            
-            // Обновляем рейтинг продавца
-            updateSellerRating(deal.sellerId);
-            
-            alert('✅ Отзыв отправлен!');
-            
-            // Сбрасываем форму
-            document.getElementById('completedDeals').value = '';
-            document.getElementById('reviewText').value = '';
-            setRating(0);
-            
-            // Обновляем отзывы
-            loadReviews();
-        }
-
-        function updateSellerRating(sellerId) {
-            const reviews = JSON.parse(localStorage.getItem('reviews')) || [];
-            const sellerReviews = reviews.filter(r => r.sellerId === sellerId);
-            
-            if (sellerReviews.length > 0) {
-                const avgRating = sellerReviews.reduce((sum, r) => sum + r.rating, 0) / sellerReviews.length;
-                
-                const users = JSON.parse(localStorage.getItem('users')) || [];
-                const seller = users.find(u => u.id === sellerId);
-                if (seller) {
-                    seller.rating = avgRating;
-                    localStorage.setItem('users', JSON.stringify(users));
-                }
-            }
-        }
-
-        function startEdit() {
-            isEditing = true;
-            
-            document.getElementById('fullNameInput').disabled = false;
-            document.getElementById('phoneInput').disabled = false;
-            document.getElementById('facultySelect').disabled = false;
-            
-            document.getElementById('clearAvatarBtn').style.display = 'inline-block';
-            
-            const actionsDiv = document.getElementById('profileActions');
-            actionsDiv.innerHTML = `
-                <button class="save-btn" onclick="saveProfile()">Сохранить</button>
-                <button class="cancel-btn" onclick="cancelEdit()">Отмена</button>
-            `;
-            
-            document.getElementById('avatarInput').addEventListener('change', handleAvatarUpload);
-        }
-
-        function cancelEdit() {
-            isEditing = false;
-            
-            document.getElementById('fullNameInput').disabled = true;
-            document.getElementById('phoneInput').disabled = true;
-            document.getElementById('facultySelect').disabled = true;
-            
-            document.getElementById('clearAvatarBtn').style.display = 'none';
-            
-            loadProfileData();
-            
-            const actionsDiv = document.getElementById('profileActions');
-            actionsDiv.innerHTML = `<button class="edit-btn" onclick="startEdit()">Редактировать</button>`;
-        }
-
-        function saveProfile() {
-            profileData = {
-                id: profileData.id,
-                fullName: document.getElementById('fullNameInput').value,
-                phone: document.getElementById('phoneInput').value,
-                faculty: document.getElementById('facultySelect').value,
-                avatar: profileData.avatar
-            };
-            
-            localStorage.setItem('profileData', JSON.stringify(profileData));
-            
-            // Обновляем в общем списке пользователей
-            let users = JSON.parse(localStorage.getItem('users')) || [];
-            const index = users.findIndex(u => u.id === profileData.id);
-            if (index !== -1) {
-                users[index].name = profileData.fullName;
-                users[index].avatar = profileData.avatar;
-                localStorage.setItem('users', JSON.stringify(users));
-            }
-            
-            cancelEdit();
-        }
-
-        function handleAvatarUpload(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    profileData.avatar = e.target.result;
-                    document.getElementById('avatarPreview').innerHTML = `<img src="${e.target.result}" alt="Avatar">`;
-                };
-                reader.readAsDataURL(file);
-            }
-        }
-
-        function clearAvatar() {
-            profileData.avatar = null;
-            document.getElementById('avatarPreview').innerHTML = '📷';
-            document.getElementById('avatarInput').value = '';
-        }
-
-        function logout() {
-            window.location.href = 'index.html';
-        }
-    </script>
+    <script src="js/profile.js"></script>
 </body>
 </html>
