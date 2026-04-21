@@ -43,6 +43,11 @@ build/
 *.tsbuildinfo
 
 docker-compose.override.yml
+certs/*.crt
+certs/*.key
+certs/*.csr
+certs/*.srl
+certs/*.pem
 
 logs/
 *.log
