@@ -1,38 +1,35 @@
-// '.edu', '.ac.ru', 'university.ru', 'kpfu.ru' 'КФУ', 'КИУ', 'КАИ', 'КГЭУ', 'РАНХИХИГС'
-
 let config = {
-    universityDomains: ['.edu', '.ac.ru', 'university.ru'],
+    universityDomains: ['.edu', '.ac.ru', 'university.ru', 'kpfu.ru'],
     universities: [],
     faculties: [],
     passwordMinLength: 8
 };
 
-let csrfToken = null;
-
 async function loadConfig() {
     try {
-        const response = await fetch('js/config_index.json');
+        const response = await fetch('/api/config');
+        
         if (response.ok) {
             const data = await response.json();
             config = { ...config, ...data };
             console.log('Конфигурация загружена:', config);
             
             populateSelect('regUniversity', config.universities, 'Выберите университет');
-            populateSelect('regFaculty', config.faculties, 'Выберите факультет');
+            populateSelect('regFaculty', config.faculties, 'Выберите направление');
         } else {
-            console.warn('Не удалось загрузить config_index.json, используем значения по умолчанию');
-            config.universities = ['КФУ', 'КИУ', 'КАИ', 'КГЭУ', 'РАНХИХИГС'];
-            config.faculties = ['Факультет информационных технологий', 'Факультет экономики', 'Факультет права', 'Факультет медицины', 'Факультет иностранных языков'];
-            populateSelect('regUniversity', config.universities, 'Выберите университет');
-            populateSelect('regFaculty', config.faculties, 'Выберите факультет');
+            setDefaultConfig();
         }
     } catch (error) {
         console.error('Ошибка загрузки конфигурации:', error);
-        config.universities = ['КФУ', 'КИУ', 'КАИ', 'КГЭУ', 'РАНХИХИГС'];
-        config.faculties = ['Факультет информационных технологий', 'Факультет экономики', 'Факультет права', 'Факультет медицины', 'Факультет иностранных языков'];
-        populateSelect('regUniversity', config.universities, 'Выберите университет');
-        populateSelect('regFaculty', config.faculties, 'Выберите факультет');
+        setDefaultConfig();
     }
+}
+
+function setDefaultConfig() {
+    config.universities = ['КФУ', 'КИУ', 'КАИ', 'КГЭУ', 'РАНХИХИГС'];
+    config.faculties = ['Информационные технологии', 'Экономика', 'Право', 'Медицина', 'Иностранные языки'];
+    populateSelect('regUniversity', config.universities, 'Выберите университет');
+    populateSelect('regFaculty', config.faculties, 'Выберите направление');
 }
 
 function populateSelect(selectId, items, defaultText) {
@@ -58,41 +55,6 @@ function isValidPassword(password) {
     return password.length >= minLength && /[A-Za-z]/.test(password) && /[0-9]/.test(password);
 }
 
-// Работа с CSRF токеном
-async function fetchCsrfToken() {
-    try {
-        const response = await fetch(API.getCsrfUrl(), {
-            method: 'GET',
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            csrfToken = data.token;
-            console.log('CSRF токен получен');
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error('Ошибка получения CSRF токена:', error);
-        return false;
-    }
-}
-
-function getSecureHeaders(forWrite = true) {
-    const headers = {
-        'Content-Type': 'application/json'
-    };
-    
-    // Для запросов на запись (POST, PUT, DELETE) добавляем CSRF токен
-    if (forWrite && csrfToken) {
-        headers['X-XSRF-TOKEN'] = csrfToken;
-    }
-    
-    return headers;
-}
-
-// UI функции
 function switchTab(tab) {
     const tabs = document.querySelectorAll('.tab');
     tabs.forEach(t => t.classList.remove('active'));
@@ -130,26 +92,10 @@ function showLoginForm() {
 }
 
 function hideMessages() {
-    document.getElementById('errorMessage').style.display = 'none';
-    document.getElementById('successMessage').style.display = 'none';
-}
-
-function showError(message) {
     const errorDiv = document.getElementById('errorMessage');
-    errorDiv.textContent = '❌ ' + message;
-    errorDiv.style.display = 'block';
-    setTimeout(() => {
-        errorDiv.style.display = 'none';
-    }, 5000);
-}
-
-function showSuccess(message) {
     const successDiv = document.getElementById('successMessage');
-    successDiv.textContent = '✅ ' + message;
-    successDiv.style.display = 'block';
-    setTimeout(() => {
-        successDiv.style.display = 'none';
-    }, 5000);
+    if (errorDiv) errorDiv.style.display = 'none';
+    if (successDiv) successDiv.style.display = 'none';
 }
 
 async function login() {
@@ -170,10 +116,7 @@ async function login() {
             method: 'POST',
             headers: getSecureHeaders(true),
             credentials: 'include',
-            body: JSON.stringify({
-                email: email,
-                password: password
-            })
+            body: JSON.stringify({ email, password })
         });
         
         const data = await response.json();
@@ -225,7 +168,6 @@ async function register() {
         return;
     }
     
-    // Получаем CSRF токен перед запросом
     if (!csrfToken) {
         await fetchCsrfToken();
     }
@@ -236,13 +178,8 @@ async function register() {
             headers: getSecureHeaders(true),
             credentials: 'include',
             body: JSON.stringify({
-                email: email,
-                fullName: fullName,
-                phone: phone,
-                university: university,
-                faculty: faculty,
-                password: password,
-                confirmPassword: confirmPassword
+                email, fullName, phone, university, faculty,
+                password, confirmPassword
             })
         });
         
@@ -251,7 +188,6 @@ async function register() {
         if (response.ok && data.isSuccess) {
             showSuccess('Регистрация прошла успешно! Теперь вы можете войти.');
             
-           
             document.getElementById('regEmail').value = '';
             document.getElementById('regFullName').value = '';
             document.getElementById('regPhone').value = '';
@@ -285,7 +221,6 @@ async function sendRecovery() {
         return;
     }
     
-    // Получаем CSRF токен перед запросом
     if (!csrfToken) {
         await fetchCsrfToken();
     }
@@ -295,9 +230,7 @@ async function sendRecovery() {
             method: 'POST',
             headers: getSecureHeaders(true),
             credentials: 'include',
-            body: JSON.stringify({
-                email: email
-            })
+            body: JSON.stringify({ email })
         });
         
         if (response.status === 204) {
@@ -333,7 +266,6 @@ async function resetPassword(token, newPassword, confirmPassword) {
         return false;
     }
     
-    // Получаем CSRF токен перед запросом
     if (!csrfToken) {
         await fetchCsrfToken();
     }
@@ -343,11 +275,7 @@ async function resetPassword(token, newPassword, confirmPassword) {
             method: 'POST',
             headers: getSecureHeaders(true),
             credentials: 'include',
-            body: JSON.stringify({
-                token: token,
-                newPassword: newPassword,
-                confirmPassword: confirmPassword
-            })
+            body: JSON.stringify({ token, newPassword, confirmPassword })
         });
         
         if (response.status === 204) {
@@ -362,29 +290,6 @@ async function resetPassword(token, newPassword, confirmPassword) {
         console.error('Ошибка:', error);
         showError('Ошибка соединения с сервером');
         return false;
-    }
-}
-
-async function logout() {
-    if (!csrfToken) {
-        await fetchCsrfToken();
-    }
-    
-    try {
-        const response = await fetch(API.getLogoutUrl(), {
-            method: 'POST',
-            headers: getSecureHeaders(true),
-            credentials: 'include'
-        });
-        
-        localStorage.removeItem('user');
-        
-        if (response.ok) {
-            window.location.href = 'index.html';
-        }
-    } catch (error) {
-        console.error('Ошибка выхода:', error);
-        window.location.href = 'index.html';
     }
 }
 
@@ -410,19 +315,5 @@ async function getCurrentUser() {
     }
 }
 
-document.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        if (document.getElementById('loginForm').style.display !== 'none') {
-            login();
-        } else if (document.getElementById('registerForm').style.display !== 'none') {
-            register();
-        } else if (document.getElementById('forgotPasswordForm').style.display !== 'none') {
-            sendRecovery();
-        }
-    }
-});
-
-document.addEventListener('DOMContentLoaded', function() {
-    loadConfig();
-    fetchCsrfToken();
-});
+loadConfig();
+fetchCsrfToken();
