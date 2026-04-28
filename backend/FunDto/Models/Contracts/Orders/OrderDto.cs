@@ -7,7 +7,6 @@
         public string AdvertisementTitle { get; set; } = null!;
         public int BuyerId { get; set; }
         public string BuyerName { get; set; } = null!;
-        public int SellerId { get; set; }
         public string SellerName { get; set; } = null!;
         public decimal Price { get; set; }
         public string Status { get; set; } = null!;

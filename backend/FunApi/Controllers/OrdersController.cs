@@ -55,7 +55,9 @@ namespace FunApi.Controllers
         [IgnoreAntiforgeryToken]
         public async Task<ActionResult<OrderDto>> GetById(int id)
         {
-            try { return Ok(await _service.GetByIdAsync(id)); }
+            var userId = ControllerHelpers.GetCurrentUserId(this);
+            if (userId is null) return Unauthorized();
+            try { return Ok(await _service.GetByIdAsync(userId.Value, id)); }
             catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         }
 

@@ -99,6 +99,10 @@ namespace FunApi.Models
                 .HasForeignKey(c => c.SellerId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<Chat>()
+                .HasIndex(c => new { c.AdvertisementId, c.BuyerId, c.SellerId })
+                .IsUnique();
+
             modelBuilder.Entity<Cart>()
                 .HasOne(c => c.User)
                 .WithOne(u => u.Cart)

@@ -11,6 +11,6 @@ namespace FunApi.Interfaces
 
         Task CompleteAsync(int userId, int orderId);
         Task CancelAsync(int userId, int orderId);
-        Task<OrderDto> GetByIdAsync(int orderId);
+        Task<OrderDto> GetByIdAsync(int userId, int orderId);
     }
 }

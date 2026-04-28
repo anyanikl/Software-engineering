@@ -1,3 +1,4 @@
+using FunApi.Exceptions;
 using FunApi.Interfaces;
 using FunApi.Models;
 using FunApi.Services;
@@ -5,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using System.Threading.RateLimiting;
 
 namespace FunApi
@@ -50,7 +52,10 @@ namespace FunApi
                 options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             builder.Services.AddHttpContextAccessor();
+            builder.Services.AddScoped<AuthCookieEvents>();
             builder.Services.AddScoped<IAuthService, AuthService>();
+            builder.Services.AddScoped<IAppConfigService, AppConfigService>();
+            builder.Services.AddScoped<IEmailSender, EmailSender>();
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IAdvertisementService, AdvertisementService>();
             builder.Services.AddScoped<IFavoriteService, FavoriteService>();
@@ -61,6 +66,7 @@ namespace FunApi
             builder.Services.AddScoped<IChatService, ChatService>();
             builder.Services.AddScoped<IModerationService, ModerationService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
+            builder.Services.AddScoped<IAccessControlService, AccessControlService>();
 
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddCookie(options =>
@@ -72,6 +78,7 @@ namespace FunApi
                     options.Cookie.SameSite = SameSiteMode.Lax;
                     options.ExpireTimeSpan = TimeSpan.FromDays(30);
                     options.SlidingExpiration = true;
+                    options.EventsType = typeof(AuthCookieEvents);
                     options.Events.OnRedirectToLogin = ctx =>
                     {
                         ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -125,11 +132,18 @@ namespace FunApi
             builder.Logging.ClearProviders();
             builder.Logging.AddConsole();
 
+            if (string.IsNullOrWhiteSpace(builder.Environment.WebRootPath))
+            {
+                builder.Environment.WebRootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
+            }
+            Directory.CreateDirectory(Path.Combine(builder.Environment.WebRootPath, "uploads"));
+
             var app = builder.Build();
 
             using (var scope = app.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<FunDBcontext>();
+
                 context.Database.Migrate();
             }
 
@@ -148,6 +162,26 @@ namespace FunApi
                 {
                     context.Response.StatusCode = StatusCodes.Status500InternalServerError;
                     context.Response.ContentType = "application/json";
+                    var exception = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+                    var statusCode = exception switch
+                    {
+                        ForbiddenException => StatusCodes.Status403Forbidden,
+                        KeyNotFoundException => StatusCodes.Status404NotFound,
+                        DomainValidationException => StatusCodes.Status400BadRequest,
+                        ArgumentException => StatusCodes.Status400BadRequest,
+                        _ => StatusCodes.Status500InternalServerError
+                    };
+
+                    context.Response.StatusCode = statusCode;
+                    if (statusCode != StatusCodes.Status500InternalServerError)
+                    {
+                        await context.Response.WriteAsJsonAsync(new
+                        {
+                            message = exception?.Message ?? "Request failed"
+                        });
+
+                        return;
+                    }
                     await context.Response.WriteAsJsonAsync(new
                     {
                         error = "Server error",
@@ -157,6 +191,11 @@ namespace FunApi
             });
 
             app.UseRouting();
+            app.UseStaticFiles(new StaticFileOptions
+            {
+                FileProvider = new PhysicalFileProvider(app.Environment.WebRootPath),
+                RequestPath = ""
+            });
             app.UseCors("AllowFrontend");
             app.UseAuthentication();
             app.UseAuthorization();

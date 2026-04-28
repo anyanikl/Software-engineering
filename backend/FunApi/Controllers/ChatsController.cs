@@ -37,11 +37,11 @@ namespace FunApi.Controllers
         }
 
         [HttpPost("or-create/{advertisementId:int}")]
-        public async Task<ActionResult<ChatDto>> OrCreate(int advertisementId)
+        public async Task<ActionResult<ChatDto>> OrCreate(int advertisementId, [FromQuery] int? participantUserId)
         {
             var userId = ControllerHelpers.GetCurrentUserId(this);
             if (userId is null) return Unauthorized();
-            return Ok(await _service.GetOrCreateAsync(userId.Value, advertisementId));
+            return Ok(await _service.GetOrCreateAsync(userId.Value, advertisementId, participantUserId));
         }
 
         [HttpPost("messages")]

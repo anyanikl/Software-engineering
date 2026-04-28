@@ -26,6 +26,10 @@ namespace FunApi.Models.Users
 
         public bool IsBlocked { get; set; }
         public bool IsEmailConfirmed { get; set; }
+        public string? EmailConfirmationTokenHash { get; set; }
+        public DateTime? EmailConfirmationTokenExpiresAt { get; set; }
+        public string? PasswordResetTokenHash { get; set; }
+        public DateTime? PasswordResetTokenExpiresAt { get; set; }
 
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }

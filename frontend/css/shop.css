@@ -381,6 +381,42 @@ body {
     font-size: 14px;
 }
 
+.modal-secondary-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.modal-secondary-btn {
+    flex: 1;
+    min-width: 180px;
+    background-color: #f4f6f8;
+    color: #2c3e50;
+    border: 1px solid #dfe6e9;
+    padding: 11px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background-color 0.3s, transform 0.3s;
+}
+
+.modal-secondary-btn:hover {
+    background-color: #e9eef2;
+    transform: translateY(-1px);
+}
+
+.modal-chat-btn {
+    background-color: #eaf4ff;
+    color: #1f5d99;
+    border-color: #c8def4;
+}
+
+.modal-chat-btn:hover {
+    background-color: #dcecff;
+}
+
 .modal-actions {
     display: flex;
     gap: 15px;

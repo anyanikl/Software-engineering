@@ -1,4 +1,5 @@
 using FunApi.Interfaces;
+using FunApi.Security;
 using FunDto.Models.Contracts.Advertisements;
 using FunDto.Models.Contracts.Moderation;
 using Microsoft.AspNetCore.Authorization;
@@ -8,7 +9,7 @@ namespace FunApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Moderator}")]
     public class ModerationController : ControllerBase
     {
         private readonly IModerationService _service;
@@ -22,7 +23,9 @@ namespace FunApi.Controllers
         [IgnoreAntiforgeryToken]
         public async Task<ActionResult<List<ModerationAdvertisementDto>>> Pending()
         {
-            return Ok(await _service.GetPendingAsync());
+            var moderatorId = ControllerHelpers.GetCurrentUserId(this);
+            if (moderatorId is null) return Unauthorized();
+            return Ok(await _service.GetPendingAsync(moderatorId.Value));
         }
 
         [HttpPost("{advertisementId:int}/approve")]

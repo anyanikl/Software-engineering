@@ -1,3 +1,4 @@
+using FunApi.Exceptions;
 using FunApi.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -61,7 +62,7 @@ namespace FunApi.Controllers
             {
                 return NotFound(new { message = ex.Message });
             }
-            catch (InvalidOperationException ex)
+            catch (DomainValidationException ex)
             {
                 return BadRequest(new { message = ex.Message });
             }
@@ -80,6 +81,47 @@ namespace FunApi.Controllers
             {
                 return NotFound(new { message = ex.Message });
             }
+        }
+
+        [HttpPost("me/avatar")]
+        [Authorize]
+        [RequestSizeLimit(5_000_000)]
+        public async Task<ActionResult<object>> UploadAvatar([FromForm] IFormFile? avatar)
+        {
+            if (avatar is null)
+            {
+                return BadRequest(new { message = "Avatar file is required" });
+            }
+
+            var userId = GetCurrentUserId();
+            if (userId is null)
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                var avatarUrl = await _userService.UpdateAvatarAsync(userId.Value, avatar);
+                return Ok(new { avatarUrl });
+            }
+            catch (DomainValidationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpDelete("me/avatar")]
+        [Authorize]
+        public async Task<IActionResult> DeleteAvatar()
+        {
+            var userId = GetCurrentUserId();
+            if (userId is null)
+            {
+                return Unauthorized();
+            }
+
+            await _userService.DeleteAvatarAsync(userId.Value);
+            return NoContent();
         }
 
         private int? GetCurrentUserId()

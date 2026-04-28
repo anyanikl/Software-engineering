@@ -13,13 +13,14 @@
             <a href="profile.html" class="active">Профиль</a>
             <a href="shop.html">Товары</a>
             <a href="my-listings.html">Мои объявления</a>
-            <a href="favorites.html">❤️ Избранное</a>
-            <a href="cart.html">🛒 Корзина</a>
-            <a href="chat.html">💬 Чаты</a>
+            <a href="favorites.html">Избранное</a>
+            <a href="cart.html">Корзина</a>
+            <a href="chat.html">Чаты</a>
+            <a href="admin-panel.html" id="adminPanelLink" style="display: none;">Админ-панель</a>
             <button class="logout-btn" onclick="logout()">Выйти</button>
         </div>
     </div>
-    
+
     <div class="container">
         <div class="profile-container">
             <div class="profile-header">
@@ -31,56 +32,52 @@
                     <span class="rating-count" id="ratingCount">(0 отзывов)</span>
                 </div>
             </div>
-            
+
             <div class="avatar-section">
                 <div class="avatar-preview" id="avatarPreview">
                     📷
                 </div>
-                
+
                 <div class="avatar-upload" id="avatarUploadSection">
                     <input type="file" id="avatarInput" accept="image/*">
                     <label for="avatarInput" id="avatarLabel">Выбрать фото</label>
                     <button id="clearAvatarBtn" onclick="clearAvatar()" style="display: none;">🗑️ Удалить</button>
                 </div>
             </div>
-            
+
             <div class="profile-form">
                 <div class="form-group">
-                    <label>ФИО:</label>
+                    <label for="fullNameInput">ФИО:</label>
                     <input type="text" id="fullNameInput" disabled>
                 </div>
-                
+
                 <div class="form-group">
-                    <label>Email:</label>
+                    <label for="emailInput">Email:</label>
                     <input type="email" id="emailInput" disabled>
                 </div>
-                
+
                 <div class="form-group">
-                    <label>Номер телефона:</label>
+                    <label for="phoneInput">Номер телефона:</label>
                     <input type="tel" id="phoneInput" disabled>
                 </div>
-                
+
                 <div class="form-group">
-                    <label>Университет:</label>
+                    <label for="universityInput">Университет:</label>
                     <input type="text" id="universityInput" disabled>
                 </div>
+
                 <div class="form-group">
-                    <label>Направление
+                    <label for="facultySelect">Направление:</label>
                     <select id="facultySelect" disabled>
                         <option value="">Выберите направление</option>
-                        <option value="Информационные технологии">Информационные технологии</option>
-                        <option value="Экономика">Экономика</option>
-                        <option value="Право">Право</option>
-                        <option value="Медицина">Медицина</option>
-                        <option value="Иностранные языки">Иностранные языки</option>
                     </select>
                 </div>
             </div>
-            
+
             <div class="profile-actions" id="profileActions">
                 <button class="edit-btn" onclick="startEdit()">Редактировать</button>
             </div>
-            
+
             <div class="stats-section">
                 <h3>📊 Статистика</h3>
                 <div class="stats-grid" id="statsGrid">
@@ -102,18 +99,18 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="reviews-section" id="reviewsSection">
                 <h3>📝 Отзывы обо мне</h3>
                 <div id="reviewsList"></div>
             </div>
-            
+
             <div class="write-review-section" id="writeReviewSection" style="display: none;">
                 <h3>✍️ Оставить отзыв</h3>
                 <select id="completedDeals" class="completed-deals-select">
                     <option value="">Выберите завершенную сделку</option>
                 </select>
-                
+
                 <div class="rating-input" id="ratingInput">
                     <span data-rating="1" onclick="setRating(1)">☆</span>
                     <span data-rating="2" onclick="setRating(2)">☆</span>
@@ -121,13 +118,14 @@
                     <span data-rating="4" onclick="setRating(4)">☆</span>
                     <span data-rating="5" onclick="setRating(5)">☆</span>
                 </div>
-                
+
                 <textarea id="reviewText" class="review-textarea" placeholder="Напишите ваш отзыв..."></textarea>
                 <button class="submit-review-btn" onclick="submitReview()">📤 Отправить отзыв</button>
             </div>
         </div>
     </div>
 
+    <script src="js/api-config.js"></script>
     <script src="js/profile.js"></script>
 </body>
 </html>

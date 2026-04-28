@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StudPay - Избранное</title>
+    <title>StudPay - избранное</title>
     <link rel="stylesheet" href="css/favorites.css">
 </head>
 <body>
@@ -13,22 +13,22 @@
             <a href="profile.html">Профиль</a>
             <a href="shop.html">Товары</a>
             <a href="my-listings.html">Мои объявления</a>
-            <a href="favorites.html" class="active">❤️ Избранное</a>
-            <a href="cart.html">🛒 Корзина</a>
-            <a href="chat.html">💬 Чаты</a>
+            <a href="favorites.html" class="active">Избранное</a>
+            <a href="cart.html">Корзина</a>
+            <a href="chat.html">Чаты</a>
             <button class="logout-btn" onclick="logout()">Выйти</button>
         </div>
     </div>
-    
+
     <div class="container">
         <div class="page-header">
-            <h1>❤️ Избранное</h1>
+            <h1>Избранное</h1>
             <p>Товары, которые вам понравились</p>
         </div>
-        
+
         <div class="filters-bar">
             <div class="search-box">
-                <input type="text" id="searchInput" placeholder="🔍 Поиск по избранному..." oninput="filterFavorites()">
+                <input type="text" id="searchInput" placeholder="Поиск по избранному..." oninput="filterFavorites()">
             </div>
             <div class="sort-select">
                 <select id="sortFilter" onchange="filterFavorites()">
@@ -39,20 +39,17 @@
                 </select>
             </div>
         </div>
-        
-        <div id="favoritesContainer" class="favorites-grid">
-            <!-- Избранные товары будут загружаться сюда -->
-        </div>
-        
+
+        <div id="favoritesContainer" class="favorites-grid"></div>
+
         <div id="emptyFavorites" class="empty-favorites" style="display: none;">
-            <span class="empty-icon">❤️</span>
+            <span class="empty-icon">❤</span>
             <h3>Избранное пусто</h3>
             <p>Добавляйте товары в избранное, чтобы не потерять их</p>
             <a href="shop.html" class="shop-link">Перейти к товарам</a>
         </div>
     </div>
 
-    <!-- Модальное окно для детального просмотра -->
     <div id="productModal" class="modal">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
@@ -65,14 +62,19 @@
                     <span id="modalPrice" class="modal-product-price"></span>
                 </div>
                 <div id="modalSeller" class="modal-product-seller"></div>
+                <div class="modal-secondary-actions" id="modalSellerActions">
+                    <button id="modalProfileBtn" class="modal-secondary-btn">Профиль продавца</button>
+                    <button id="modalChatBtn" class="modal-secondary-btn modal-chat-btn">Написать продавцу</button>
+                </div>
                 <div class="modal-actions">
                     <button id="modalBuyBtn" class="modal-buy-btn">Купить</button>
-                    <button id="modalRemoveBtn" class="modal-remove-btn">🗑️ Удалить из избранного</button>
+                    <button id="modalRemoveBtn" class="modal-remove-btn">Удалить из избранного</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <script src="js/api-config.js"></script>
     <script src="js/favorites.js"></script>
 </body>
 </html>

@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/.vs/
+.vs/
+.git/
+.gitignore
+Dockerfile
+*.user
+*.suo
+*.cache
+TestResults/
+coverage/
+*.trx

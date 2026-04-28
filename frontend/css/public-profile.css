@@ -183,6 +183,13 @@ body {
     box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
 }
 
+.chat-hint {
+    margin-top: 15px;
+    color: #5f6c7b;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
 /* Статистика */
 .stats-grid {
     display: grid;
@@ -351,6 +358,39 @@ body {
     color: #27ae60;
     font-weight: 700;
     font-size: 20px;
+}
+
+.product-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.product-action-btn {
+    flex: 1;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    background-color: #eef2f5;
+    color: #2c3e50;
+    transition: background-color 0.3s, transform 0.3s;
+}
+
+.product-action-btn:hover {
+    background-color: #e1e8ee;
+    transform: translateY(-1px);
+}
+
+.product-chat-btn {
+    background-color: #3498db;
+    color: white;
+}
+
+.product-chat-btn:hover {
+    background-color: #2980b9;
 }
 
 .no-data {

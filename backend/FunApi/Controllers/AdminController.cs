@@ -1,4 +1,5 @@
 using FunApi.Interfaces;
+using FunApi.Security;
 using FunDto.Models.Contracts.Admin;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,7 +8,7 @@ namespace FunApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = AppRoles.Admin)]
     public class AdminController : ControllerBase
     {
         private readonly IAdminService _service;
@@ -21,7 +22,9 @@ namespace FunApi.Controllers
         [IgnoreAntiforgeryToken]
         public async Task<ActionResult<List<AdminStatsDto>>> Users([FromQuery] UserAdminFilterDto filter)
         {
-            return Ok(await _service.GetUsersAsync(filter));
+            var adminId = ControllerHelpers.GetCurrentUserId(this);
+            if (adminId is null) return Unauthorized();
+            return Ok(await _service.GetUsersAsync(adminId.Value, filter));
         }
 
         [HttpPost("users/{userId:int}/block")]
@@ -46,21 +49,27 @@ namespace FunApi.Controllers
         [IgnoreAntiforgeryToken]
         public async Task<ActionResult<UserAdminDto>> Stats()
         {
-            return Ok(await _service.GetStatsAsync());
+            var adminId = ControllerHelpers.GetCurrentUserId(this);
+            if (adminId is null) return Unauthorized();
+            return Ok(await _service.GetStatsAsync(adminId.Value));
         }
 
         [HttpGet("export/csv")]
         [IgnoreAntiforgeryToken]
         public async Task<ActionResult<string>> ExportCsv()
         {
-            return Ok(await _service.ExportUsersCsvAsync());
+            var adminId = ControllerHelpers.GetCurrentUserId(this);
+            if (adminId is null) return Unauthorized();
+            return Ok(await _service.ExportUsersCsvAsync(adminId.Value));
         }
 
         [HttpGet("export/json")]
         [IgnoreAntiforgeryToken]
         public async Task<ActionResult<string>> ExportJson()
         {
-            return Ok(await _service.ExportUsersJsonAsync());
+            var adminId = ControllerHelpers.GetCurrentUserId(this);
+            if (adminId is null) return Unauthorized();
+            return Ok(await _service.ExportUsersJsonAsync(adminId.Value));
         }
     }
 }

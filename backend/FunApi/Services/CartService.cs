@@ -23,26 +23,45 @@ namespace FunApi.Services
                 .Where(x => x.Id == cart.Id)
                 .Select(x => new CartDto
                 {
-                    Items = x.Items.Select(i => new FunDto.Models.Contracts.Advertisements.AdvertisementCardDto
-                    {
-                        Id = i.Advertisement.Id,
-                        Title = i.Advertisement.Title,
-                        ShortDescription = i.Advertisement.Description.Length > 120 ? i.Advertisement.Description.Substring(0, 120) + "..." : i.Advertisement.Description,
-                        Type = i.Advertisement.Type,
-                        Price = i.Advertisement.Price,
-                        SellerName = i.Advertisement.Seller.FullName,
-                        MainImageUrl = i.Advertisement.Images.OrderByDescending(img => img.IsPrimary).ThenBy(img => img.Id).Select(img => img.ImageUrl).FirstOrDefault(),
-                        IsFavorite = false,
-                        IsInCart = true
-                    }).ToList(),
-                    TotalCount = x.Items.Count,
-                    TotalPrice = x.Items.Sum(i => i.Advertisement.Price)
+                    Items = x.Items
+                        .Where(i => !i.Advertisement.IsDeleted && !i.Advertisement.IsArchived && i.Advertisement.AdvertisementStatus.Name == "approved")
+                        .Select(i => new FunDto.Models.Contracts.Advertisements.AdvertisementCardDto
+                        {
+                            Id = i.Advertisement.Id,
+                            SellerId = i.Advertisement.SellerId,
+                            Title = i.Advertisement.Title,
+                            ShortDescription = i.Advertisement.Description.Length > 120 ? i.Advertisement.Description.Substring(0, 120) + "..." : i.Advertisement.Description,
+                            Course = i.Advertisement.Course,
+                            Type = i.Advertisement.Type,
+                            Price = i.Advertisement.Price,
+                            Location = i.Advertisement.Location,
+                            SellerName = i.Advertisement.Seller.FullName,
+                            MainImageUrl = i.Advertisement.Images.OrderByDescending(img => img.IsPrimary).ThenBy(img => img.Id).Select(img => img.ImageUrl).FirstOrDefault(),
+                            CreatedAt = i.Advertisement.CreatedAt,
+                            IsFavorite = false,
+                            IsInCart = true
+                        }).ToList(),
+                    TotalCount = x.Items.Count(i => !i.Advertisement.IsDeleted && !i.Advertisement.IsArchived && i.Advertisement.AdvertisementStatus.Name == "approved"),
+                    TotalPrice = x.Items
+                        .Where(i => !i.Advertisement.IsDeleted && !i.Advertisement.IsArchived && i.Advertisement.AdvertisementStatus.Name == "approved")
+                        .Sum(i => i.Advertisement.Price)
                 })
                 .FirstAsync();
         }
 
         public async Task AddItemAsync(int userId, int advertisementId)
         {
+            var advertisementExists = await _context.Advertisements.AnyAsync(x =>
+                x.Id == advertisementId
+                && !x.IsDeleted
+                && !x.IsArchived
+                && x.AdvertisementStatus.Name == "approved");
+
+            if (!advertisementExists)
+            {
+                throw new KeyNotFoundException("Advertisement not found");
+            }
+
             var cart = await GetOrCreateCartAsync(userId);
             if (await _context.CartItems.AnyAsync(x => x.CartId == cart.Id && x.AdvertisementId == advertisementId))
             {

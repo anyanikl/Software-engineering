@@ -8,46 +8,46 @@
 </head>
 <body>
     <div class="navbar">
-        <h2>📚 StudPay</h2>
+        <h2>StudPay</h2>
         <div class="nav-links">
             <a href="profile.html">Профиль</a>
             <a href="shop.html">Товары</a>
             <a href="my-listings.html" class="active">Мои объявления</a>
-            <a href="shop.html?page=favorites">Избранное</a>
-            <a href="cart.html">🛒 Корзина</a>
+            <a href="favorites.html">Избранное</a>
+            <a href="cart.html">Корзина</a>
             <button class="logout-btn" onclick="logout()">Выйти</button>
         </div>
     </div>
-    
+
     <div class="container">
         <div class="form-container">
-            <h1>✏️ Редактировать объявление</h1>
-            
+            <h1>Редактировать объявление</h1>
+
             <div id="statusWarning" class="status-warning" style="display: none;">
-                <p>⚠️ После редактирования объявление отправится на повторную модерацию</p>
-                <small>Статус изменится на "На модерации"</small>
+                <p>После редактирования объявление отправится на повторную модерацию.</p>
+                <small>Статус изменится на "На модерации".</small>
             </div>
-            
+
             <form id="listingForm" onsubmit="updateListing(event)">
                 <input type="hidden" id="listingId">
-                
+
                 <div class="form-group">
                     <label for="name">Название товара *</label>
                     <input type="text" id="name" required maxlength="100">
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="category">Курс *</label>
                         <select id="category" required>
                             <option value="">Выберите курс</option>
-                            <option value="1 курс">1 курс</option>
-                            <option value="2 курс">2 курс</option>
-                            <option value="3 курс">3 курс</option>
-                            <option value="4 курс">4 курс</option>
+                            <option value="1">1 курс</option>
+                            <option value="2">2 курс</option>
+                            <option value="3">3 курс</option>
+                            <option value="4">4 курс</option>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="type">Тип *</label>
                         <select id="type" required>
@@ -60,165 +60,49 @@
                         </select>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="description">Описание *</label>
                     <textarea id="description" required maxlength="1000"></textarea>
                     <div class="info-text">Максимум 1000 символов</div>
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="price">Цена (₽) *</label>
                         <input type="number" id="price" required min="0" step="1">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="location">Местоположение *</label>
                         <input type="text" id="location" required>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label>Текущее фото</label>
                     <div class="current-image">
                         <img id="currentImage" src="" alt="Текущее фото">
                     </div>
-                    
+
                     <label for="image">Заменить фото</label>
                     <div class="image-upload" onclick="document.getElementById('image').click()">
                         <input type="file" id="image" accept="image/*" onchange="previewImage(event)">
-                        <label for="image" id="imageLabel">📸 Нажмите для загрузки нового фото</label>
+                        <label for="image" id="imageLabel">Нажмите для загрузки нового фото</label>
                         <img id="imagePreview" class="image-preview" alt="Предпросмотр">
                     </div>
-                    <button type="button" class="remove-image-btn" onclick="removeImage()" style="display: none;" id="removeImageBtn">🗑️ Удалить фото</button>
+                    <button type="button" class="remove-image-btn" onclick="removeImage()" style="display: none;" id="removeImageBtn">Удалить фото</button>
                 </div>
-                
+
                 <div class="form-actions">
-                    <button type="submit" class="submit-btn">💾 Сохранить изменения</button>
+                    <button type="submit" class="submit-btn">Сохранить изменения</button>
                     <button type="button" class="cancel-btn" onclick="goBack()">Отмена</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <script>
-        let currentListing = null;
-
-        window.onload = function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const listingId = parseInt(urlParams.get('id'));
-            
-            if (listingId) {
-                loadListing(listingId);
-            } else {
-                alert('Ошибка: объявление не найдено');
-                history.back();
-            }
-        };
-
-        function loadListing(listingId) {
-            const listings = JSON.parse(localStorage.getItem('listings')) || [];
-            currentListing = listings.find(l => l.id === listingId);
-            
-            if (currentListing) {
-                document.getElementById('listingId').value = currentListing.id;
-                document.getElementById('name').value = currentListing.name;
-                document.getElementById('category').value = currentListing.category;
-                document.getElementById('type').value = currentListing.type;
-                document.getElementById('description').value = currentListing.description;
-                document.getElementById('price').value = currentListing.price;
-                document.getElementById('location').value = currentListing.location;
-                
-                if (currentListing.image) {
-                    document.getElementById('currentImage').src = currentListing.image;
-                    document.getElementById('removeImageBtn').style.display = 'inline-block';
-                }
-                
-                // Показываем предупреждение о модерации
-                document.getElementById('statusWarning').style.display = 'block';
-            }
-        }
-
-        function previewImage(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const preview = document.getElementById('imagePreview');
-                    preview.src = e.target.result;
-                    preview.classList.add('show');
-                    document.getElementById('imageLabel').textContent = file.name;
-                    document.getElementById('currentImage').style.display = 'none';
-                    document.getElementById('removeImageBtn').style.display = 'inline-block';
-                };
-                reader.readAsDataURL(file);
-            }
-        }
-
-        function removeImage() {
-            document.getElementById('image').value = '';
-            document.getElementById('imagePreview').classList.remove('show');
-            document.getElementById('imageLabel').textContent = '📸 Нажмите для загрузки нового фото';
-            
-            if (currentListing && currentListing.image) {
-                document.getElementById('currentImage').style.display = 'block';
-            } else {
-                document.getElementById('removeImageBtn').style.display = 'none';
-            }
-        }
-
-        function updateListing(event) {
-            event.preventDefault();
-            
-            let listings = JSON.parse(localStorage.getItem('listings')) || [];
-            const listingId = parseInt(document.getElementById('listingId').value);
-            
-            const imageFile = document.getElementById('image').files[0];
-            
-            const updateListingData = (imageDataUrl = null) => {
-                const index = listings.findIndex(l => l.id === listingId);
-                
-                if (index !== -1) {
-                    // Сохраняем старые данные
-                    const oldListing = listings[index];
-                    
-                    // Обновляем данные
-                    listings[index] = {
-                        ...oldListing,
-                        name: document.getElementById('name').value,
-                        category: document.getElementById('category').value,
-                        type: document.getElementById('type').value,
-                        description: document.getElementById('description').value,
-                        price: parseInt(document.getElementById('price').value),
-                        location: document.getElementById('location').value,
-                        image: imageDataUrl !== undefined ? imageDataUrl : oldListing.image,
-                        status: 'pending', // Отправляем на модерацию
-                        updatedAt: new Date().toISOString(),
-                        moderatorComment: null // Очищаем комментарий модератора
-                    };
-                    
-                    localStorage.setItem('listings', JSON.stringify(listings));
-                    
-                    alert(' Изменения сохранены. Объявление отправлено на модерацию!');
-                    window.location.href = 'my-listings.html';
-                }
-            };
-            
-            if (imageFile) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    updateListingData(e.target.result);
-                };
-                reader.readAsDataURL(imageFile);
-            } else {
-                updateListingData(undefined);
-            }
-        }
-
-        function logout() {
-            window.location.href = 'index.html';
-        }
-    </script>
+    <script src="js/api-config.js"></script>
+    <script src="js/edit-listing.js"></script>
 </body>
 </html>

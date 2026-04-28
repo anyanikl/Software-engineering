@@ -1,6 +1,8 @@
 using FunApi.Interfaces;
 using FunApi.Models;
 using FunApi.Models.Advertisements;
+using FunApi.Exceptions;
+using FunApi.Security;
 using FunDto.Models.Contracts.Advertisements;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,11 +12,16 @@ namespace FunApi.Services
     {
         private readonly FunDBcontext _context;
         private readonly INotificationService _notificationService;
+        private readonly IAccessControlService _accessControlService;
 
-        public ModerationService(FunDBcontext context, INotificationService notificationService)
+        public ModerationService(
+            FunDBcontext context,
+            INotificationService notificationService,
+            IAccessControlService accessControlService)
         {
             _context = context;
             _notificationService = notificationService;
+            _accessControlService = accessControlService;
         }
 
         public Task ApproveAsync(int moderatorId, int advertisementId, string? comment)
@@ -22,8 +29,10 @@ namespace FunApi.Services
             return ModerateAsync(moderatorId, advertisementId, "approved", comment);
         }
 
-        public async Task<List<ModerationAdvertisementDto>> GetPendingAsync()
+        public async Task<List<ModerationAdvertisementDto>> GetPendingAsync(int moderatorId)
         {
+            await _accessControlService.EnsureAnyRoleAsync(moderatorId, AppRoles.Admin, AppRoles.Moderator);
+
             return await _context.Advertisements
                 .AsNoTracking()
                 .Where(x => !x.IsDeleted && !x.IsArchived && x.AdvertisementStatus.Name == "pending")
@@ -55,10 +64,18 @@ namespace FunApi.Services
 
         private async Task ModerateAsync(int moderatorId, int advertisementId, string decision, string? comment)
         {
-            var advertisement = await _context.Advertisements.FirstOrDefaultAsync(x => x.Id == advertisementId && !x.IsDeleted);
+            await _accessControlService.EnsureAnyRoleAsync(moderatorId, AppRoles.Admin, AppRoles.Moderator);
+
+            var advertisement = await _context.Advertisements
+                .FirstOrDefaultAsync(x => x.Id == advertisementId && !x.IsDeleted);
             if (advertisement is null)
             {
                 throw new KeyNotFoundException("Advertisement not found");
+            }
+
+            if (advertisement.SellerId == moderatorId)
+            {
+                throw new ForbiddenException("You cannot moderate your own advertisement");
             }
 
             advertisement.AdvertisementStatusId = await EnsureStatusAsync(decision);

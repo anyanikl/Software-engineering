@@ -9,6 +9,7 @@ namespace FunApi.Interfaces
         Task<AuthResultInternalDto> RegisterAsync(RegisterInternalDto dto, CancellationToken cancellationToken = default);
         Task LogoutAsync(CancellationToken cancellationToken = default);
         Task RequestPasswordResetAsync(string email, CancellationToken cancellationToken = default);
+        Task RequestEmailConfirmationAsync(string email, CancellationToken cancellationToken = default);
         Task ResetPasswordAsync(string token, string newPassword, string confirmPassword, CancellationToken cancellationToken = default);
         Task ConfirmEmailAsync(string token, CancellationToken cancellationToken = default);
     }

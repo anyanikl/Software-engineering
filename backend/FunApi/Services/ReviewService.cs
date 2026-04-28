@@ -1,6 +1,7 @@
 using FunApi.Interfaces;
 using FunApi.Models;
 using FunApi.Models.Orders;
+using FunApi.Exceptions;
 using FunDto.Models.Contracts.Reviews;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,12 +20,13 @@ namespace FunApi.Services
         {
             if (!await CanLeaveReviewAsync(authorId, dto.OrderId))
             {
-                throw new InvalidOperationException("Review is not allowed");
+                throw new DomainValidationException("Review is not allowed");
             }
 
             var order = await _context.Orders
                 .Include(x => x.Buyer)
                 .Include(x => x.Seller)
+                .Include(x => x.Advertisement)
                 .FirstAsync(x => x.Id == dto.OrderId);
 
             var targetUserId = order.BuyerId == authorId ? order.SellerId : order.BuyerId;
@@ -46,12 +48,13 @@ namespace FunApi.Services
                 .AsNoTracking()
                 .Where(x => x.Id == review.Id)
                 .Include(x => x.Author)
+                .Include(x => x.Order)
+                .ThenInclude(x => x.Advertisement)
                 .Select(x => new ReviewDto
                 {
                     Id = x.Id,
-                    OrderId = x.OrderId,
-                    AuthorId = x.AuthorId,
                     AuthorName = x.Author.FullName,
+                    ProductName = x.Order.Advertisement.Title,
                     Rating = x.Rating,
                     Comment = x.Comment,
                     CreatedAt = x.CreatedAt
@@ -65,13 +68,14 @@ namespace FunApi.Services
                 .AsNoTracking()
                 .Where(x => x.TargetUserId == userId)
                 .Include(x => x.Author)
+                .Include(x => x.Order)
+                .ThenInclude(x => x.Advertisement)
                 .OrderByDescending(x => x.CreatedAt)
                 .Select(x => new ReviewDto
                 {
                     Id = x.Id,
-                    OrderId = x.OrderId,
-                    AuthorId = x.AuthorId,
                     AuthorName = x.Author.FullName,
+                    ProductName = x.Order.Advertisement.Title,
                     Rating = x.Rating,
                     Comment = x.Comment,
                     CreatedAt = x.CreatedAt

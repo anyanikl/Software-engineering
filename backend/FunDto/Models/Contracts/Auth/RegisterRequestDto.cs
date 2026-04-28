@@ -10,7 +10,7 @@ namespace FunDto.Models.Contracts.Auth
         public string Email { get; set; } = null!;
 
         [Required]
-        [MinLength(6)]
+        [MinLength(8)]
         [MaxLength(100)]
         public string Password { get; set; } = null!;
 

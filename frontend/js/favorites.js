@@ -3,186 +3,187 @@ let cart = [];
 let currentUser = null;
 let currentModalProduct = null;
 
-window.onload = async function() {
+const fallbackImage =
+    'data:image/svg+xml;charset=UTF-8,' +
+    encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="360" height="240" viewBox="0 0 360 240">
+            <rect width="360" height="240" fill="#f3f4f6"/>
+            <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+                  font-family="Arial, sans-serif" font-size="24" fill="#6b7280">Нет фото</text>
+        </svg>
+    `);
+
+window.onload = initializeFavoritesPage;
+
+async function initializeFavoritesPage() {
     await fetchCsrfToken();
     currentUser = await checkAuth();
-    
+
     if (!currentUser) {
         window.location.href = 'index.html';
         return;
     }
-    
-    await loadFavorites();
-    await loadCart();
-    displayFavorites();
-    setupModalHandlers();
-};
 
-async function loadFavorites() {
+    setupModalHandlers();
+
     try {
-        const response = await fetch(API.getFavoritesUrl(), { credentials: 'include' });
-        if (response.ok) {
-            favorites = await response.json();
-            localStorage.setItem('favorites', JSON.stringify(favorites));
-        } else {
-            loadFavoritesFromLocal();
-        }
+        await Promise.all([loadFavorites(), loadCart()]);
     } catch (error) {
-        console.error('Ошибка загрузки избранного из API:', error);
-        loadFavoritesFromLocal();
+        showError(error.message || 'Не удалось загрузить избранное');
     }
+
+    displayFavorites();
 }
 
-function loadFavoritesFromLocal() {
-    favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+async function loadFavorites() {
+    const data = await requestJson(API.getFavoritesUrl(), {
+        useCsrf: false,
+        fallbackMessage: 'Не удалось загрузить избранное'
+    });
+
+    favorites = Array.isArray(data) ? data : [];
 }
 
 async function loadCart() {
-    try {
-        const response = await fetch(API.getCartUrl(), { credentials: 'include' });
-        if (response.ok) {
-            const data = await response.json();
-            cart = data.items || [];
-            localStorage.setItem('cart', JSON.stringify(cart));
-        } else {
-            loadCartFromLocal();
-        }
-    } catch (error) {
-        console.error('Ошибка загрузки корзины из API:', error);
-        loadCartFromLocal();
-    }
-}
+    const data = await requestJson(API.getCartUrl(), {
+        useCsrf: false,
+        fallbackMessage: 'Не удалось загрузить корзину'
+    });
 
-function loadCartFromLocal() {
-    cart = JSON.parse(localStorage.getItem('cart')) || [];
+    cart = Array.isArray(data?.items) ? data.items : [];
 }
 
 async function removeFromFavorites(productId) {
     try {
-        const response = await fetch(API.toggleFavoriteUrl(productId), {
+        await requestNoContent(API.toggleFavoriteUrl(productId), {
             method: 'DELETE',
-            headers: getSecureHeaders(true),
-            credentials: 'include'
+            fallbackMessage: 'Не удалось удалить товар из избранного'
         });
-        if (response.ok) {
-            favorites = favorites.filter(f => f.id !== productId);
-            localStorage.setItem('favorites', JSON.stringify(favorites));
-            displayFavorites();
-            showSuccess('Товар удален из избранного');
-            if (currentModalProduct && currentModalProduct.id === productId) {
-                closeModal();
-            }
-            return;
+
+        await loadFavorites();
+        displayFavorites();
+
+        if (currentModalProduct?.id === productId) {
+            closeModal();
         }
+
+        showSuccess('Товар удален из избранного');
     } catch (error) {
-        console.error('Ошибка API:', error);
-    }
-    
-    // Fallback на localStorage
-    favorites = favorites.filter(f => f.id !== productId);
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-    displayFavorites();
-    showSuccess('Товар удален из избранного');
-    if (currentModalProduct && currentModalProduct.id === productId) {
-        closeModal();
+        showError(error.message || 'Не удалось удалить товар из избранного');
     }
 }
 
 async function addToCart(product) {
-    const isInCart = cart.some(item => item.id === product.id);
-    
-    if (isInCart) {
+    if (cart.some(item => item.id === product.id)) {
         showError('Товар уже в корзине');
         return;
     }
-    
-    try {
-        const response = await fetch(API.addToCartUrl(product.id), {
-            method: 'POST',
-            headers: getSecureHeaders(true),
-            credentials: 'include'
-        });
-        if (response.ok) {
-            await loadCart();
-            showSuccess('Товар добавлен в корзину');
-            updateCartBadgeInModal(true);
-            return;
-        }
-    } catch (error) {
-        console.error('Ошибка API:', error);
-    }
-    
-    // Fallback на localStorage
-    cart.push({ ...product, quantity: 1 });
-    localStorage.setItem('cart', JSON.stringify(cart));
-    showSuccess('Товар добавлен в корзину');
-    updateCartBadgeInModal(true);
-}
 
-function updateCartBadgeInModal(isInCart) {
-    const buyBtn = document.getElementById('modalBuyBtn');
-    if (buyBtn) {
-        buyBtn.textContent = isInCart ? '✓ В корзине' : 'Купить';
-        buyBtn.style.backgroundColor = isInCart ? '#27ae60' : '#3498db';
+    try {
+        await requestNoContent(API.addToCartUrl(product.id), {
+            method: 'POST',
+            fallbackMessage: 'Не удалось добавить товар в корзину'
+        });
+
+        await loadCart();
+        displayFavorites();
+        updateCartBadgeInModal(true);
+        showSuccess('Товар добавлен в корзину');
+    } catch (error) {
+        showError(error.message || 'Не удалось добавить товар в корзину');
     }
 }
 
 function displayFavorites() {
     const container = document.getElementById('favoritesContainer');
-    const emptyDiv = document.getElementById('emptyFavorites');
-    
-    if (!container) return;
-    
-    if (favorites.length === 0) {
-        if (container) container.style.display = 'none';
-        if (emptyDiv) emptyDiv.style.display = 'block';
+    const emptyState = document.getElementById('emptyFavorites');
+    if (!container) {
         return;
     }
-    
-    if (container) container.style.display = 'grid';
-    if (emptyDiv) emptyDiv.style.display = 'none';
-    
-    const searchText = document.getElementById('searchInput')?.value.toLowerCase() || '';
-    
-    let filtered = [...favorites];
-    if (searchText) {
-        filtered = filtered.filter(item => 
-            (item.title || '').toLowerCase().includes(searchText) || 
-            (item.shortDescription || '').toLowerCase().includes(searchText)
-        );
+
+    const favoritesToShow = getFilteredAndSortedFavorites();
+
+    if (favoritesToShow.length === 0) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        if (emptyState) {
+            emptyState.style.display = 'block';
+        }
+        return;
     }
-    
-    container.innerHTML = filtered.map(product => {
-        const isInCart = cart.some(item => item.id === product.id);
-        const title = product.title;
-        const description = product.shortDescription || 'Нет описания';
-        const imageUrl = product.mainImageUrl || 'https://via.placeholder.com/300x200?text=Нет+фото';
-        const courseText = product.course ? `${product.course} курс` : '';
-        const typeText = product.type || '';
-        const seller = product.sellerName || 'Продавец';
-        const price = product.price;
-        
-        return `
-            <div class="favorite-card" onclick='openProductModal(${JSON.stringify(product).replace(/"/g, '&quot;')})'>
-                <img src="${imageUrl}" 
-                     alt="${escapeHtml(title)}" 
-                     class="favorite-card-image"
-                     onerror="this.src='https://via.placeholder.com/300x200?text=Ошибка'">
-                <div class="favorite-card-info">
-                    <div class="favorite-card-name">${escapeHtml(title)}</div>
-                    <div class="favorite-card-description">${escapeHtml(description)}</div>
-                    <div class="favorite-card-meta">
-                        <span class="favorite-card-category">${courseText} ${typeText ? `• ${typeText}` : ''}</span>
-                        <span class="favorite-card-price">${price.toLocaleString()} ₽</span>
-                    </div>
-                    <div class="favorite-card-footer">
-                        <span class="favorite-card-seller">👤 ${escapeHtml(seller)}</span>
-                        <button class="remove-favorite-btn" onclick="event.stopPropagation(); removeFromFavorites(${product.id})">🗑️</button>
-                    </div>
+
+    container.style.display = 'grid';
+    if (emptyState) {
+        emptyState.style.display = 'none';
+    }
+
+    container.innerHTML = favoritesToShow.map(renderFavoriteCard).join('');
+}
+
+function getFilteredAndSortedFavorites() {
+    const searchText = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+    const sortBy = document.getElementById('sortFilter')?.value || 'date_desc';
+
+    const filtered = favorites.filter(item => {
+        const title = String(item.title || '').toLowerCase();
+        const description = String(item.shortDescription || '').toLowerCase();
+        return !searchText || title.includes(searchText) || description.includes(searchText);
+    });
+
+    return filtered.sort((left, right) => compareFavorites(left, right, sortBy));
+}
+
+function compareFavorites(left, right, sortBy) {
+    if (sortBy === 'price_asc') {
+        return Number(left.price || 0) - Number(right.price || 0);
+    }
+
+    if (sortBy === 'price_desc') {
+        return Number(right.price || 0) - Number(left.price || 0);
+    }
+
+    const leftDate = new Date(left.createdAt || 0).getTime();
+    const rightDate = new Date(right.createdAt || 0).getTime();
+
+    return sortBy === 'date_asc'
+        ? leftDate - rightDate
+        : rightDate - leftDate;
+}
+
+function renderFavoriteCard(product) {
+    const isInCart = cart.some(item => item.id === product.id);
+    const productJson = encodeURIComponent(JSON.stringify(product));
+    const imageUrl = normalizeAssetUrl(product.mainImageUrl);
+    const meta = [product.course ? `${product.course} курс` : '', product.type || '']
+        .filter(Boolean)
+        .join(' • ');
+
+    return `
+        <div class="favorite-card" onclick="openProductModal(JSON.parse(decodeURIComponent('${productJson}')))">
+            <img
+                src="${escapeAttribute(imageUrl)}"
+                alt="${escapeAttribute(product.title || 'Товар')}"
+                class="favorite-card-image"
+                onerror="this.src='${fallbackImage}'">
+            <div class="favorite-card-info">
+                <div class="favorite-card-name">${escapeHtml(product.title || 'Без названия')}</div>
+                <div class="favorite-card-description">${escapeHtml(product.shortDescription || 'Описание отсутствует')}</div>
+                <div class="favorite-card-meta">
+                    <span class="favorite-card-category">${escapeHtml(meta)}</span>
+                    <span class="favorite-card-price">${Number(product.price || 0).toLocaleString('ru-RU')} ₽</span>
+                </div>
+                <div class="favorite-card-footer">
+                    <span class="favorite-card-seller">${escapeHtml(product.sellerName || 'Продавец')}</span>
+                    <button class="remove-favorite-btn" onclick="event.stopPropagation(); removeFromFavorites(${product.id})">Удалить</button>
+                </div>
+                <div class="favorite-card-actions">
+                    <button class="buy-btn ${isInCart ? 'added' : ''}" onclick="event.stopPropagation(); addToCart(JSON.parse(decodeURIComponent('${productJson}')))">
+                        ${isInCart ? 'В корзине' : 'В корзину'}
+                    </button>
                 </div>
             </div>
-        `;
-    }).join('');
+        </div>
+    `;
 }
 
 function filterFavorites() {
@@ -192,71 +193,171 @@ function filterFavorites() {
 function openProductModal(product) {
     currentModalProduct = product;
     const modal = document.getElementById('productModal');
+    if (!modal) {
+        return;
+    }
+
     const isInCart = cart.some(item => item.id === product.id);
-    
-    const title = product.title;
-    const description = product.description || product.shortDescription || 'Нет описания';
-    const imageUrl = product.mainImageUrl || 'https://via.placeholder.com/600x300?text=Нет+фото';
-    const courseText = product.course ? `${product.course} курс` : '';
-    const typeText = product.type || '';
-    const seller = product.sellerName || 'Не указан';
-    const price = product.price;
-    
-    document.getElementById('modalImage').src = imageUrl;
-    document.getElementById('modalName').textContent = title;
-    document.getElementById('modalDescription').textContent = description;
-    document.getElementById('modalCategory').textContent = `${courseText} ${typeText ? `• ${typeText}` : ''}`;
-    document.getElementById('modalPrice').textContent = `${price.toLocaleString()} ₽`;
-    document.getElementById('modalSeller').textContent = `👤 Продавец: ${escapeHtml(seller)}`;
-    
-    const buyBtn = document.getElementById('modalBuyBtn');
-    buyBtn.textContent = isInCart ? '✓ В корзине' : 'Купить';
-    buyBtn.style.backgroundColor = isInCart ? '#27ae60' : '#3498db';
-    
+
+    document.getElementById('modalImage').src = normalizeAssetUrl(product.mainImageUrl);
+    document.getElementById('modalName').textContent = product.title || 'Без названия';
+    document.getElementById('modalDescription').textContent = product.shortDescription || 'Описание отсутствует';
+    document.getElementById('modalCategory').textContent = [product.course ? `${product.course} курс` : '', product.type || '']
+        .filter(Boolean)
+        .join(' • ');
+    document.getElementById('modalPrice').textContent = `${Number(product.price || 0).toLocaleString('ru-RU')} ₽`;
+    document.getElementById('modalSeller').textContent = `Продавец: ${product.sellerName || 'Не указан'}`;
+    updateSellerActions(product);
+
+    updateCartBadgeInModal(isInCart);
     modal.style.display = 'block';
 }
 
 function closeModal() {
-    document.getElementById('productModal').style.display = 'none';
+    const modal = document.getElementById('productModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+
     currentModalProduct = null;
 }
 
 function setupModalHandlers() {
     const modal = document.getElementById('productModal');
-    const closeBtn = document.querySelector('.close-modal');
-    if (closeBtn) closeBtn.onclick = closeModal;
-    window.onclick = (event) => { if (event.target === modal) closeModal(); };
-    
-    document.getElementById('modalBuyBtn').onclick = () => {
-        if (currentModalProduct) addToCart(currentModalProduct);
+    const closeButton = document.querySelector('.close-modal');
+
+    if (closeButton) {
+        closeButton.onclick = closeModal;
+    }
+
+    window.onclick = event => {
+        if (event.target === modal) {
+            closeModal();
+        }
     };
-    document.getElementById('modalRemoveBtn').onclick = () => {
-        if (currentModalProduct) removeFromFavorites(currentModalProduct.id);
-    };
+
+    const buyButton = document.getElementById('modalBuyBtn');
+    if (buyButton) {
+        buyButton.onclick = () => {
+            if (currentModalProduct) {
+                addToCart(currentModalProduct);
+            }
+        };
+    }
+
+    const removeButton = document.getElementById('modalRemoveBtn');
+    if (removeButton) {
+        removeButton.onclick = () => {
+            if (currentModalProduct) {
+                removeFromFavorites(currentModalProduct.id);
+            }
+        };
+    }
+
+    const profileButton = document.getElementById('modalProfileBtn');
+    if (profileButton) {
+        profileButton.onclick = openSellerProfile;
+    }
+
+    const chatButton = document.getElementById('modalChatBtn');
+    if (chatButton) {
+        chatButton.onclick = startChatWithSeller;
+    }
+}
+
+function updateCartBadgeInModal(isInCart) {
+    const buyButton = document.getElementById('modalBuyBtn');
+    if (!buyButton) {
+        return;
+    }
+
+    buyButton.textContent = isInCart ? 'В корзине' : 'Купить';
+    buyButton.style.backgroundColor = isInCart ? '#27ae60' : '#3498db';
+}
+
+function updateSellerActions(product) {
+    const sellerActions = document.getElementById('modalSellerActions');
+    const profileButton = document.getElementById('modalProfileBtn');
+    const chatButton = document.getElementById('modalChatBtn');
+    const sellerId = Number(product?.sellerId || 0);
+    const isOwnListing = sellerId > 0 && Number(currentUser?.id || 0) === sellerId;
+    const canOpenProfile = sellerId > 0 && !isOwnListing;
+    const canStartChat = Boolean(product?.id) && !isOwnListing;
+
+    if (profileButton) {
+        profileButton.style.display = canOpenProfile ? 'inline-block' : 'none';
+    }
+
+    if (chatButton) {
+        chatButton.style.display = canStartChat ? 'inline-block' : 'none';
+    }
+
+    if (sellerActions) {
+        sellerActions.style.display = canOpenProfile || canStartChat ? 'flex' : 'none';
+    }
+}
+
+function openSellerProfile() {
+    if (!currentModalProduct) {
+        return;
+    }
+
+    const sellerId = Number(currentModalProduct.sellerId || 0);
+    if (!sellerId) {
+        showError('Не удалось открыть профиль продавца');
+        return;
+    }
+
+    window.location.href = `public-profile.html?id=${sellerId}&product=${currentModalProduct.id}`;
+}
+
+function startChatWithSeller() {
+    if (!currentModalProduct) {
+        return;
+    }
+
+    const sellerId = Number(currentModalProduct.sellerId || 0);
+    if (sellerId > 0 && Number(currentUser?.id || 0) === sellerId) {
+        showError('Нельзя начать чат с самим собой');
+        return;
+    }
+
+    const chatUrl = sellerId > 0
+        ? `chat.html?product=${currentModalProduct.id}&participant=${sellerId}`
+        : `chat.html?product=${currentModalProduct.id}`;
+
+    window.location.href = chatUrl;
+}
+
+function normalizeAssetUrl(url) {
+    if (!url) {
+        return fallbackImage;
+    }
+
+    if (/^(https?:|data:|blob:)/i.test(url)) {
+        return url;
+    }
+
+    return url.startsWith('/') ? url : `/${url}`;
+}
+
+function escapeAttribute(str) {
+    return escapeHtml(str).replace(/`/g, '&#96;');
 }
 
 function showSuccess(message) {
-    const toast = document.createElement('div');
-    toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#27ae60;color:white;padding:12px 20px;border-radius:8px;z-index:10000;';
-    toast.textContent = '✅ ' + message;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    showToast(message, false);
 }
 
 function showError(message) {
-    const toast = document.createElement('div');
-    toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#e74c3c;color:white;padding:12px 20px;border-radius:8px;z-index:10000;';
-    toast.textContent = '❌ ' + message;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    showToast(message, true);
 }
 
-function escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
-    });
+function showToast(message, isError) {
+    const toast = document.createElement('div');
+    toast.className = 'notification-toast';
+    toast.style.cssText = `position:fixed;bottom:20px;right:20px;background:${isError ? '#e74c3c' : '#27ae60'};color:white;padding:12px 20px;border-radius:8px;z-index:10000;`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
 }

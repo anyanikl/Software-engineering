@@ -6,7 +6,7 @@ namespace FunApi.Interfaces
     {
         Task<List<ChatListItemDto>> GetMyChatsAsync(int userId);
         Task<ChatDto> GetByIdAsync(int userId, int chatId);
-        Task<ChatDto> GetOrCreateAsync(int buyerId, int advertisementId);
+        Task<ChatDto> GetOrCreateAsync(int currentUserId, int advertisementId, int? participantUserId = null);
         Task<MessageDto> SendMessageAsync(int senderId, SendMessageDto dto);
         Task MarkAsReadAsync(int userId, int chatId);
     }

@@ -273,7 +273,8 @@ namespace FunApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AdvertisementId");
+                    b.HasIndex("AdvertisementId", "BuyerId", "SellerId")
+                        .IsUnique();
 
                     b.HasIndex("BuyerId");
 
@@ -554,6 +555,12 @@ namespace FunApi.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("EmailConfirmationTokenExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EmailConfirmationTokenHash")
+                        .HasColumnType("text");
+
                     b.Property<int>("FacultyId")
                         .HasColumnType("integer");
 
@@ -569,6 +576,12 @@ namespace FunApi.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("PasswordResetTokenExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PasswordResetTokenHash")
                         .HasColumnType("text");
 
                     b.Property<string>("PhoneNumber")

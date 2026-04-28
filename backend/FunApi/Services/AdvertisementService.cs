@@ -1,7 +1,9 @@
 using System.Linq.Expressions;
+using FunApi.Exceptions;
 using FunApi.Interfaces;
 using FunApi.Models;
 using FunApi.Models.Advertisements;
+using FunApi.Security;
 using FunDto.Models.Contracts.Advertisements;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,14 +11,30 @@ namespace FunApi.Services
 {
     public class AdvertisementService : IAdvertisementService
     {
-        private readonly FunDBcontext _context;
+        private static readonly HashSet<string> AllowedImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp",
+            ".gif"
+        };
 
-        public AdvertisementService(FunDBcontext context)
+        private readonly FunDBcontext _context;
+        private readonly IWebHostEnvironment _environment;
+        private readonly IAccessControlService _accessControlService;
+
+        public AdvertisementService(
+            FunDBcontext context,
+            IWebHostEnvironment environment,
+            IAccessControlService accessControlService)
         {
             _context = context;
+            _environment = environment;
+            _accessControlService = accessControlService;
         }
 
-        public async Task<AdvertisementDto> GetByIdAsync(int advertisementId)
+        public async Task<AdvertisementDto> GetByIdAsync(int advertisementId, int? viewerId = null)
         {
             var advertisement = await _context.Advertisements
                 .AsNoTracking()
@@ -30,9 +48,27 @@ namespace FunApi.Services
                 throw new KeyNotFoundException("Advertisement not found");
             }
 
+            var isOwner = viewerId.HasValue && advertisement.SellerId == viewerId.Value;
+            var hasElevatedAccess = viewerId.HasValue
+                && await _accessControlService.HasAnyRoleAsync(viewerId.Value, AppRoles.Admin, AppRoles.Moderator);
+            var isPubliclyVisible = IsPubliclyVisible(advertisement);
+
+            if (!isPubliclyVisible && !isOwner && !hasElevatedAccess)
+            {
+                throw new KeyNotFoundException("Advertisement not found");
+            }
+
+            var canSeeModerationData = isOwner || hasElevatedAccess;
+            var mainImageUrl = advertisement.Images
+                .OrderByDescending(x => x.IsPrimary)
+                .ThenBy(x => x.Id)
+                .Select(x => x.ImageUrl)
+                .FirstOrDefault();
+
             return new AdvertisementDto
             {
                 Id = advertisement.Id,
+                SellerId = advertisement.SellerId,
                 Title = advertisement.Title,
                 Description = advertisement.Description,
                 Course = advertisement.Course,
@@ -40,8 +76,10 @@ namespace FunApi.Services
                 Price = advertisement.Price,
                 Location = advertisement.Location,
                 SellerName = advertisement.Seller.FullName,
-                Status = advertisement.AdvertisementStatus.Name,
-                ModeratorComment = advertisement.ModeratorComment,
+                Status = GetDisplayStatus(advertisement),
+                ModeratorComment = canSeeModerationData ? advertisement.ModeratorComment : null,
+                MainImageUrl = mainImageUrl,
+                CanEdit = isOwner,
                 ImageUrls = advertisement.Images
                     .OrderByDescending(x => x.IsPrimary)
                     .ThenBy(x => x.Id)
@@ -68,14 +106,14 @@ namespace FunApi.Services
             var advertisement = new Advertisement
             {
                 SellerId = sellerId,
-                CategoryId = await EnsureCategoryAsync(dto.Type),
+                CategoryId = await EnsureCategoryAsync(NormalizeRequired(dto.Type, "Type")),
                 AdvertisementStatusId = await EnsureAdvertisementStatusAsync("pending"),
-                Title = dto.Title.Trim(),
-                Description = dto.Description.Trim(),
+                Title = NormalizeRequired(dto.Title, "Title"),
+                Description = NormalizeRequired(dto.Description, "Description"),
                 Course = dto.Course,
-                Type = dto.Type.Trim(),
+                Type = NormalizeRequired(dto.Type, "Type"),
                 Price = dto.Price,
-                Location = dto.Location.Trim(),
+                Location = NormalizeRequired(dto.Location, "Location"),
                 IsArchived = false,
                 IsDeleted = false,
                 CreatedAt = DateTime.UtcNow,
@@ -84,26 +122,27 @@ namespace FunApi.Services
 
             _context.Advertisements.Add(advertisement);
             await _context.SaveChangesAsync();
-            return await GetByIdAsync(advertisement.Id);
+            return await GetByIdAsync(advertisement.Id, sellerId);
         }
 
         public async Task<AdvertisementDto> UpdateAsync(int sellerId, int advertisementId, UpdateAdvertisementDto dto)
         {
             var advertisement = await GetSellerAdvertisementAsync(sellerId, advertisementId);
-            advertisement.Title = dto.Title.Trim();
-            advertisement.Description = dto.Description.Trim();
+
+            advertisement.Title = NormalizeRequired(dto.Title, "Title");
+            advertisement.Description = NormalizeRequired(dto.Description, "Description");
             advertisement.Course = dto.Course;
-            advertisement.Type = dto.Type.Trim();
+            advertisement.Type = NormalizeRequired(dto.Type, "Type");
             advertisement.Price = dto.Price;
-            advertisement.Location = dto.Location.Trim();
-            advertisement.CategoryId = await EnsureCategoryAsync(dto.Type);
+            advertisement.Location = NormalizeRequired(dto.Location, "Location");
+            advertisement.CategoryId = await EnsureCategoryAsync(advertisement.Type);
             advertisement.AdvertisementStatusId = await EnsureAdvertisementStatusAsync("pending");
             advertisement.ModeratorComment = null;
             advertisement.IsArchived = false;
             advertisement.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
 
-            return await GetByIdAsync(advertisement.Id);
+            await _context.SaveChangesAsync();
+            return await GetByIdAsync(advertisement.Id, sellerId);
         }
 
         public async Task DeleteAsync(int sellerId, int advertisementId)
@@ -122,6 +161,16 @@ namespace FunApi.Services
             await _context.SaveChangesAsync();
         }
 
+        public async Task RestoreAsync(int sellerId, int advertisementId)
+        {
+            var advertisement = await GetSellerAdvertisementAsync(sellerId, advertisementId);
+            advertisement.IsArchived = false;
+            advertisement.AdvertisementStatusId = await EnsureAdvertisementStatusAsync("pending");
+            advertisement.ModeratorComment = null;
+            advertisement.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
         public async Task<List<MyAdvertisementDto>> GetMyAdvertisementsAsync(int sellerId, string? status = null)
         {
             var query = _context.Advertisements
@@ -134,7 +183,12 @@ namespace FunApi.Services
 
             if (!string.IsNullOrWhiteSpace(status))
             {
-                query = query.Where(x => x.AdvertisementStatus.Name == status);
+                var normalizedStatus = status.Trim().ToLowerInvariant();
+                query = normalizedStatus switch
+                {
+                    "archived" => query.Where(x => x.IsArchived),
+                    _ => query.Where(x => !x.IsArchived && x.AdvertisementStatus.Name == normalizedStatus)
+                };
             }
 
             return await query
@@ -146,7 +200,7 @@ namespace FunApi.Services
                     Description = x.Description,
                     Price = x.Price,
                     Location = x.Location,
-                    Status = x.AdvertisementStatus.Name,
+                    Status = x.IsArchived ? "archived" : x.AdvertisementStatus.Name,
                     ModeratorComment = x.ModeratorComment,
                     OrdersCount = x.Orders.Count,
                     MainImageUrl = x.Images
@@ -158,7 +212,7 @@ namespace FunApi.Services
                 .ToListAsync();
         }
 
-        public async Task AddImagesAsync(int sellerId, int advertisementId, List<IFormFile> files)
+        public async Task<List<string>> AddImagesAsync(int sellerId, int advertisementId, List<IFormFile> files)
         {
             var advertisement = await _context.Advertisements
                 .Include(x => x.Images)
@@ -169,17 +223,70 @@ namespace FunApi.Services
                 throw new KeyNotFoundException("Advertisement not found");
             }
 
-            var makePrimary = !advertisement.Images.Any();
-            foreach (var file in files)
+            var validFiles = files.Where(x => x.Length > 0).ToList();
+            if (validFiles.Count == 0)
             {
+                throw new DomainValidationException("Image file is empty");
+            }
+
+            var uploadDirectory = Path.Combine(GetWebRootPath(), "uploads", "advertisements", advertisementId.ToString());
+            Directory.CreateDirectory(uploadDirectory);
+
+            var imageUrls = new List<string>();
+            var makePrimary = !advertisement.Images.Any();
+            foreach (var file in validFiles)
+            {
+                if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new DomainValidationException("Only image files are allowed");
+                }
+
+                var extension = Path.GetExtension(file.FileName);
+                if (!AllowedImageExtensions.Contains(extension))
+                {
+                    throw new DomainValidationException("Unsupported image extension");
+                }
+
+                var fileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+                var filePath = Path.Combine(uploadDirectory, fileName);
+
+                await using (var stream = File.Create(filePath))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                var imageUrl = $"/uploads/advertisements/{advertisementId}/{fileName}";
                 advertisement.Images.Add(new AdvertisementImage
                 {
-                    ImageUrl = $"/uploads/advertisements/{advertisementId}/{Guid.NewGuid():N}-{file.FileName}",
+                    ImageUrl = imageUrl,
                     IsPrimary = makePrimary
                 });
+                imageUrls.Add(imageUrl);
                 makePrimary = false;
             }
 
+            advertisement.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return imageUrls;
+        }
+
+        public async Task DeleteImagesAsync(int sellerId, int advertisementId)
+        {
+            var advertisement = await _context.Advertisements
+                .Include(x => x.Images)
+                .FirstOrDefaultAsync(x => x.Id == advertisementId && x.SellerId == sellerId && !x.IsDeleted);
+
+            if (advertisement is null)
+            {
+                throw new KeyNotFoundException("Advertisement not found");
+            }
+
+            foreach (var image in advertisement.Images)
+            {
+                DeletePhysicalImage(image.ImageUrl);
+            }
+
+            _context.AdvertisementImages.RemoveRange(advertisement.Images);
             advertisement.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
@@ -197,6 +304,7 @@ namespace FunApi.Services
                 throw new KeyNotFoundException("Image not found");
             }
 
+            DeletePhysicalImage(image.ImageUrl);
             _context.AdvertisementImages.Remove(image);
             await _context.SaveChangesAsync();
         }
@@ -244,16 +352,20 @@ namespace FunApi.Services
             return x => new AdvertisementCardDto
             {
                 Id = x.Id,
+                SellerId = x.SellerId,
                 Title = x.Title,
                 ShortDescription = x.Description.Length > 120 ? x.Description.Substring(0, 120) + "..." : x.Description,
+                Course = x.Course,
                 Type = x.Type,
                 Price = x.Price,
+                Location = x.Location,
                 SellerName = x.Seller.FullName,
                 MainImageUrl = x.Images
                     .OrderByDescending(i => i.IsPrimary)
                     .ThenBy(i => i.Id)
                     .Select(i => i.ImageUrl)
                     .FirstOrDefault(),
+                CreatedAt = x.CreatedAt,
                 IsFavorite = false,
                 IsInCart = false
             };
@@ -274,10 +386,11 @@ namespace FunApi.Services
 
         private async Task<int> EnsureAdvertisementStatusAsync(string name)
         {
-            var status = await _context.AdvertisementStatuses.FirstOrDefaultAsync(x => x.Name == name);
+            var normalizedName = name.Trim().ToLowerInvariant();
+            var status = await _context.AdvertisementStatuses.FirstOrDefaultAsync(x => x.Name == normalizedName);
             if (status is not null) return status.Id;
 
-            status = new AdvertisementStatus { Name = name };
+            status = new AdvertisementStatus { Name = normalizedName };
             _context.AdvertisementStatuses.Add(status);
             await _context.SaveChangesAsync();
             return status.Id;
@@ -285,13 +398,67 @@ namespace FunApi.Services
 
         private async Task<int> EnsureCategoryAsync(string name)
         {
-            var category = await _context.Categories.FirstOrDefaultAsync(x => x.Name == name);
+            var normalizedName = name.Trim();
+            var category = await _context.Categories.FirstOrDefaultAsync(x => x.Name == normalizedName);
             if (category is not null) return category.Id;
 
-            category = new Category { Name = name };
+            category = new Category { Name = normalizedName };
             _context.Categories.Add(category);
             await _context.SaveChangesAsync();
             return category.Id;
+        }
+
+        private static bool IsPubliclyVisible(Advertisement advertisement)
+        {
+            return !advertisement.IsArchived && advertisement.AdvertisementStatus.Name == "approved";
+        }
+
+        private static string GetDisplayStatus(Advertisement advertisement)
+        {
+            return advertisement.IsArchived ? "archived" : advertisement.AdvertisementStatus.Name;
+        }
+
+        private static string NormalizeRequired(string value, string fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new DomainValidationException($"{fieldName} is required");
+            }
+
+            return value.Trim();
+        }
+
+        private string GetWebRootPath()
+        {
+            var webRootPath = _environment.WebRootPath;
+            if (!string.IsNullOrWhiteSpace(webRootPath))
+            {
+                Directory.CreateDirectory(webRootPath);
+                return webRootPath;
+            }
+
+            webRootPath = Path.Combine(_environment.ContentRootPath, "wwwroot");
+            Directory.CreateDirectory(webRootPath);
+            return webRootPath;
+        }
+
+        private void DeletePhysicalImage(string imageUrl)
+        {
+            if (string.IsNullOrWhiteSpace(imageUrl) || !imageUrl.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var relativePath = imageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+            var fullPath = Path.GetFullPath(Path.Combine(GetWebRootPath(), relativePath));
+            var uploadsRoot = Path.GetFullPath(Path.Combine(GetWebRootPath(), "uploads"));
+
+            if (!fullPath.StartsWith(uploadsRoot, StringComparison.OrdinalIgnoreCase) || !File.Exists(fullPath))
+            {
+                return;
+            }
+
+            File.Delete(fullPath);
         }
     }
 }

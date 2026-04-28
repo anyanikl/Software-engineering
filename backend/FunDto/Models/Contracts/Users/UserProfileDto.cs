@@ -9,6 +9,7 @@ namespace FunDto.Models.Contracts.Users
         public string Email { get; set; } = null!;
         public string Phone { get; set; } = null!;
         public string? AvatarUrl { get; set; }
+        public string University { get; set; } = null!;
         public string Faculty { get; set; } = null!;
         public double Rating { get; set; }
         public int ReviewsCount { get; set; }

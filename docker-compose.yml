@@ -15,6 +15,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - backend_uploads:/app/wwwroot/uploads
     networks:
       - fun-net
 
@@ -71,6 +73,7 @@ services:
       - fun-net
 
 volumes:
+  backend_uploads:
   postgres_data:
 
 networks:

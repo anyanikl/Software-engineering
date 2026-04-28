@@ -31,8 +31,12 @@ namespace FunApi.Controllers
         {
             var userId = ControllerHelpers.GetCurrentUserId(this);
             if (userId is null) return Unauthorized();
-            await _service.AddAsync(userId.Value, advertisementId);
-            return NoContent();
+            try
+            {
+                await _service.AddAsync(userId.Value, advertisementId);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         }
 
         [HttpDelete("{advertisementId:int}")]

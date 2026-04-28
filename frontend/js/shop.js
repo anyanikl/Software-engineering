@@ -1,447 +1,505 @@
-// Демо-товары для примера (всегда доступны) - в старом формате
-const demoProducts = [
-    {
-        id: 1,
-        name: 'Учебник по мат. анализу 1 курс',
-        description: 'Высшая математика, линейная алгебра, аналитическая геометрия. Состояние отличное',
-        price: 900,
-        category: '1 курс',
-        type: 'учебники',
-        date: '2026-03-15',
-        image: 'https://avatars.mds.yandex.net/get-marketpic/16279129/piccb080f0ee1dd31766ced51aeae85c96a/orig',
-        seller: 'Иван П.'
-    },
-    {
-        id: 2,
-        name: 'Лабораторная работа по компьютерной графике',
-        description: 'Готовая лаба по комп. графике, все расчеты и выводы',
-        price: 1000,
-        category: '3 курс',
-        type: 'лабораторные',
-        date: '2026-03-14',
-        image: 'https://avatars.mds.yandex.net/i?id=bff5fbe586af0b8247542db28b2db6d7_l-5234434-images-thumbs&n=13',
-        seller: 'Мария С.'
-    },
-    {
-        id: 3,
-        name: 'Курсовая по программированию',
-        description: 'Веб-приложение на React + Node.js, полный код и пояснения',
-        price: 5000,
-        category: '3 курс',
-        type: 'курсовые',
-        date: '2026-03-13',
-        image: 'https://www.angularspace.com/content/images/2024/07/GPYrUf8bMAAxaHu--1--1.jpg',
-        seller: 'Алексей К.'
-    },
-    {
-        id: 4,
-        name: 'Дипломная работа "ИИ в образовании"',
-        description: 'Готовая дипломная работа, 80 страниц, презентация, речь',
-        price: 7000,
-        category: '4 курс',
-        type: 'дипломы',
-        date: '2026-03-12',
-        image: 'https://ic.pics.livejournal.com/alex_nevz/89963941/567382/567382_800.png',
-        seller: 'Елена В.'
-    },
-    {
-        id: 5,
-        name: 'Отчет по практике',
-        description: 'Производственная практика в IT компании, дневник и отчет',
-        price: 1300,
-        category: '3 курс',
-        type: 'практики',
-        date: '2026-03-11',
-        image: 'https://cf.ppt-online.org/files/slide/6/6M3KguJXpFiI8UrBRxfjTva50HsYDGb7cZVSO1/slide-2.jpg',
-        seller: 'Дмитрий Н.'
-    },
-    {
-        id: 6,
-        name: 'Лабораторная по физике',
-        description: 'Полностью оформленная работа',
-        price: 400,
-        category: '1 курс',
-        type: 'лабораторные',
-        date: '2026-03-10',
-        image: 'https://avatars.mds.yandex.net/i?id=623f208ab21a10188f935435769b7608_l-5877226-images-thumbs&n=13',
-        seller: 'Анна М.'
-    }
-];
-
-// Объединенный список всех товаров (демо + одобренные из localStorage + из API)
-let allProducts = [...demoProducts];
-
-// Избранное (хранится в localStorage)
-let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
-
-// Корзина (хранится в localStorage)
-let cart = JSON.parse(localStorage.getItem('cart')) || [];
-
+let allProducts = [];
+let favorites = [];
+let cart = [];
 let currentUser = null;
 let currentModalProduct = null;
+let currentPage = 'shop';
+let requestedProductId = null;
 
-window.onload = async function() {
-    // Инициализация API
-    if (typeof fetchCsrfToken !== 'undefined') {
-        await fetchCsrfToken();
-        currentUser = await checkAuth();
-        
-        if (currentUser) {
-            await loadFavoritesFromAPI();
-            await loadCartFromAPI();
-            await loadProductsFromAPI();
-        }
-    }
-    
-    loadUserProducts();
-    updateCartBadge();
-    
+const fallbackImage =
+    'data:image/svg+xml;charset=UTF-8,' +
+    encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="560" height="360" viewBox="0 0 560 360">
+            <rect width="560" height="360" fill="#f3f4f6"/>
+            <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+                  font-family="Arial, sans-serif" font-size="28" fill="#6b7280">Нет фото</text>
+        </svg>
+    `);
+
+window.onload = initializeShopPage;
+
+async function initializeShopPage() {
+    await fetchCsrfToken();
+    currentUser = await checkAuth();
+
     const urlParams = new URLSearchParams(window.location.search);
-    const page = urlParams.get('page');
-    
-    if (page === 'favorites') {
-        document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
-        document.getElementById('favoritesLink').classList.add('active');
-        document.getElementById('filters-section').style.display = 'none';
-        showFavorites();
-    } else {
-        document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
-        const shopLink = document.querySelector('.nav-links a[href="shop.html"]');
-        if (shopLink) shopLink.classList.add('active');
-        document.getElementById('filters-section').style.display = 'block';
-        displayProducts(allProducts);
+    currentPage = urlParams.get('page') === 'favorites' ? 'favorites' : 'shop';
+    requestedProductId = urlParams.get('product') ? Number(urlParams.get('product')) : null;
+
+    if (!currentUser && currentPage === 'favorites') {
+        currentPage = 'shop';
     }
 
-    // Закрытие модального окна
+    setupModal();
+    setupActiveNavigation();
+
+    if (currentUser) {
+        try {
+            await Promise.all([loadFavoritesFromAPI(), loadCartFromAPI()]);
+        } catch (error) {
+            showToast(error.message || 'Не удалось загрузить данные пользователя', true);
+        }
+    } else {
+        favorites = [];
+        cart = [];
+    }
+
+    await loadProductsFromAPI();
+    updateCartBadge();
+    await openRequestedProductFromUrl();
+}
+
+function setupActiveNavigation() {
+    document.querySelectorAll('.nav-links a').forEach(link => link.classList.remove('active'));
+
+    if (currentPage === 'favorites') {
+        const favoritesLink = document.getElementById('favoritesLink');
+        if (favoritesLink) {
+            favoritesLink.classList.add('active');
+        }
+
+        const filters = document.getElementById('filters-section');
+        if (filters) {
+            filters.style.display = 'none';
+        }
+        return;
+    }
+
+    const shopLink = document.querySelector('.nav-links a[href="shop.html"]');
+    if (shopLink) {
+        shopLink.classList.add('active');
+    }
+
+    const filters = document.getElementById('filters-section');
+    if (filters) {
+        filters.style.display = 'block';
+    }
+}
+
+function setupModal() {
     const modal = document.getElementById('productModal');
-    const closeBtn = document.querySelector('.close-modal');
-    
-    if (closeBtn) {
-        closeBtn.onclick = function() {
-            modal.style.display = 'none';
-        }
+    const closeButton = document.querySelector('.close-modal');
+
+    if (closeButton) {
+        closeButton.onclick = closeModal;
     }
-    
-    window.onclick = function(event) {
+
+    window.onclick = event => {
         if (event.target === modal) {
-            modal.style.display = 'none';
+            closeModal();
         }
-    }
-    
-    // Обработчики для модального окна
-    const modalBuyBtn = document.getElementById('modalBuyBtn');
-    const modalFavoriteBtn = document.getElementById('modalFavoriteBtn');
-    
-    if (modalBuyBtn) {
-        const newBuyBtn = modalBuyBtn.cloneNode(true);
-        modalBuyBtn.parentNode.replaceChild(newBuyBtn, modalBuyBtn);
-        newBuyBtn.onclick = function() {
+    };
+
+    const buyButton = document.getElementById('modalBuyBtn');
+    if (buyButton) {
+        buyButton.onclick = () => {
             if (currentModalProduct) {
                 toggleCart(currentModalProduct.id);
             }
         };
     }
-    
-    if (modalFavoriteBtn) {
-        const newFavoriteBtn = modalFavoriteBtn.cloneNode(true);
-        modalFavoriteBtn.parentNode.replaceChild(newFavoriteBtn, modalFavoriteBtn);
-        newFavoriteBtn.onclick = function() {
+
+    const favoriteButton = document.getElementById('modalFavoriteBtn');
+    if (favoriteButton) {
+        favoriteButton.onclick = () => {
             if (currentModalProduct) {
                 toggleFavorite(currentModalProduct.id);
             }
         };
     }
-};
 
-// Преобразование DTO из API в формат, понятный фронту
-function convertAPIToLocalFormat(apiProduct) {
-    // AdvertisementCardDto и AdvertisementDto имеют разные поля
-    const isCardDto = apiProduct.shortDescription !== undefined;
-    
-    // Определяем категорию из course (если есть)
-    let category = '';
-    if (apiProduct.course) {
-        category = `${apiProduct.course} курс`;
+    const profileButton = document.getElementById('modalProfileBtn');
+    if (profileButton) {
+        profileButton.onclick = openSellerProfile;
     }
-    
-    // Определяем тип на русском
-    let typeMap = {
-        'book': 'учебники',
-        'laboratory': 'лабораторные',
-        'coursework': 'курсовые',
-        'practice': 'практики',
-        'diploma': 'дипломы'
-    };
-    let type = typeMap[apiProduct.type] || apiProduct.type || '';
-    
+
+    const chatButton = document.getElementById('modalChatBtn');
+    if (chatButton) {
+        chatButton.onclick = startChatWithSeller;
+    }
+}
+
+function closeModal() {
+    const modal = document.getElementById('productModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function convertAPIToLocalFormat(apiProduct) {
     return {
         id: apiProduct.id,
+        sellerId: apiProduct.sellerId || null,
         name: apiProduct.title,
-        description: isCardDto ? (apiProduct.shortDescription || 'Нет описания') : (apiProduct.description || 'Нет описания'),
-        price: apiProduct.price,
-        category: category,
-        type: type,
-        image: apiProduct.mainImageUrl || (apiProduct.imageUrls ? apiProduct.imageUrls[0] : null),
-        seller: apiProduct.sellerName,
+        description: apiProduct.shortDescription || apiProduct.description || 'Описание отсутствует',
+        price: Number(apiProduct.price || 0),
+        category: apiProduct.course ? `${apiProduct.course} курс` : '',
+        type: apiProduct.type || '',
+        image: normalizeAssetUrl(apiProduct.mainImageUrl || apiProduct.imageUrls?.[0]),
+        seller: apiProduct.sellerName || 'Продавец',
         location: apiProduct.location || '',
         status: apiProduct.status || 'approved',
         moderatorComment: apiProduct.moderatorComment || null,
-        isFavorite: apiProduct.isFavorite || false,
-        isInCart: apiProduct.isInCart || false,
-        createdAt: apiProduct.createdAt,
-        ordersCount: apiProduct.ordersCount || 0
+        createdAt: apiProduct.createdAt || null
     };
+}
+
+function normalizeAssetUrl(url) {
+    if (!url) {
+        return fallbackImage;
+    }
+
+    if (/^(https?:|data:|blob:)/i.test(url)) {
+        return url;
+    }
+
+    return url.startsWith('/') ? url : `/${url}`;
 }
 
 async function loadProductsFromAPI() {
-    const search = document.getElementById('searchInput')?.value || '';
+    const params = new URLSearchParams();
+    const search = document.getElementById('searchInput')?.value.trim();
     const category = document.getElementById('categoryFilter')?.value;
     const type = document.getElementById('typeFilter')?.value;
     const sortBy = document.getElementById('sortFilter')?.value || 'date_desc';
-    
-    // Преобразуем категорию в course (число)
-    let course = '';
+
+    params.set('sortBy', sortBy);
+    if (search) {
+        params.set('search', search);
+    }
+
     if (category && category !== 'all') {
         const match = category.match(/(\d+)/);
-        if (match) course = match[1];
-    }
-    
-    // Преобразуем тип на русском в английский
-    let typeMapReverse = {
-        'учебники': 'book',
-        'лабораторные': 'laboratory',
-        'курсовые': 'coursework',
-        'практики': 'practice',
-        'дипломы': 'diploma'
-    };
-    let apiType = typeMapReverse[type] || (type !== 'all' ? type : '');
-    
-    let url = `${API.getAdvertisementsUrl()}?sortBy=${sortBy}`;
-    if (search) url += `&search=${encodeURIComponent(search)}`;
-    if (course) url += `&course=${course}`;
-    if (apiType && apiType !== 'all') url += `&type=${apiType}`;
-    
-    try {
-        const response = await fetch(url, { credentials: 'include' });
-        if (response.ok) {
-            const data = await response.json();
-            if (data && data.length > 0) {
-                // Преобразуем API данные в本地 формат
-                const convertedProducts = data.map(apiProduct => convertAPIToLocalFormat(apiProduct));
-                
-                // Объединяем с существующими товарами, избегая дубликатов
-                const existingIds = new Set(allProducts.map(p => p.id));
-                const newProducts = convertedProducts.filter(p => !existingIds.has(p.id));
-                allProducts = [...allProducts, ...newProducts];
-                
-                // Обновляем отображение
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.get('page') === 'favorites') {
-                    showFavorites();
-                } else {
-                    displayProducts(allProducts);
-                }
-            }
+        if (match) {
+            params.set('course', match[1]);
         }
+    }
+
+    if (type && type !== 'all') {
+        params.set('type', type);
+    }
+
+    try {
+        const data = await requestJson(`${API.getAdvertisementsUrl()}?${params.toString()}`, {
+            useCsrf: false,
+            fallbackMessage: 'Не удалось загрузить товары'
+        });
+
+        allProducts = Array.isArray(data) ? data.map(convertAPIToLocalFormat) : [];
     } catch (error) {
         console.error('Ошибка загрузки товаров из API:', error);
+        allProducts = [];
+        showToast(error.message || 'Не удалось загрузить товары', true);
     }
+
+    renderCurrentPage();
 }
 
 async function loadFavoritesFromAPI() {
-    if (!currentUser) return;
-    try {
-        const response = await fetch(API.getFavoritesUrl(), { credentials: 'include' });
-        if (response.ok) {
-            const data = await response.json();
-            // Преобразуем и сохраняем в favorites
-            favorites = data.map(apiProduct => convertAPIToLocalFormat(apiProduct));
-            localStorage.setItem('favorites', JSON.stringify(favorites));
-        }
-    } catch (error) { console.error('Ошибка загрузки избранного:', error); }
+    const data = await requestJson(API.getFavoritesUrl(), {
+        useCsrf: false,
+        fallbackMessage: 'Не удалось загрузить избранное'
+    });
+
+    favorites = Array.isArray(data) ? data.map(convertAPIToLocalFormat) : [];
 }
 
 async function loadCartFromAPI() {
-    if (!currentUser) return;
-    try {
-        const response = await fetch(API.getCartUrl(), { credentials: 'include' });
-        if (response.ok) {
-            const data = await response.json();
-            cart = (data.items || []).map(item => ({
-                ...convertAPIToLocalFormat(item),
-                quantity: item.quantity || 1
-            }));
-            localStorage.setItem('cart', JSON.stringify(cart));
-            updateCartBadge();
-        }
-    } catch (error) { console.error('Ошибка загрузки корзины:', error); }
+    const data = await requestJson(API.getCartUrl(), {
+        useCsrf: false,
+        fallbackMessage: 'Не удалось загрузить корзину'
+    });
+
+    cart = Array.isArray(data?.items) ? data.items.map(convertAPIToLocalFormat) : [];
 }
 
-async function syncFavoriteToAPI(productId, isFavorite) {
-    if (!currentUser) return false;
-    try {
-        const response = await fetch(API.toggleFavoriteUrl(productId), {
-            method: isFavorite ? 'POST' : 'DELETE',
-            headers: getSecureHeaders(true),
-            credentials: 'include'
-        });
-        return response.ok;
-    } catch (error) {
-        console.error('Ошибка синхронизации избранного:', error);
-        return false;
+function renderCurrentPage() {
+    if (currentPage === 'favorites') {
+        showFavorites();
+        return;
     }
-}
 
-async function syncCartToAPI(productId, isInCart) {
-    if (!currentUser) return false;
-    try {
-        const response = await fetch(isInCart ? API.addToCartUrl(productId) : API.removeFromCartUrl(productId), {
-            method: isInCart ? 'POST' : 'DELETE',
-            headers: getSecureHeaders(true),
-            credentials: 'include'
-        });
-        return response.ok;
-    } catch (error) {
-        console.error('Ошибка синхронизации корзины:', error);
-        return false;
-    }
-}
-
-// ========== ОСНОВНЫЕ ФУНКЦИИ (без изменений логики) ==========
-
-function loadUserProducts() {
-    // Загружаем объявления пользователей из localStorage
-    const userListings = JSON.parse(localStorage.getItem('listings')) || [];
-    
-    // Фильтруем только одобренные
-    const approvedListings = userListings.filter(listing => listing.status === 'approved');
-    
-    // Добавляем их к демо-товарам, но исключаем дубликаты по id
-    const existingIds = new Set(demoProducts.map(p => p.id));
-    const newListings = approvedListings.filter(listing => !existingIds.has(listing.id));
-    
-    allProducts = [...demoProducts, ...newListings];
-}
-
-function updateCartBadge() {
-    const badge = document.getElementById('cartBadge');
-    if (badge) {
-        if (cart.length > 0) {
-            badge.style.display = 'inline-block';
-            badge.textContent = cart.length;
-        } else {
-            badge.style.display = 'none';
-        }
-    }
+    displayProducts(allProducts);
 }
 
 function filterProducts() {
-    const searchText = document.getElementById('searchInput').value.toLowerCase();
-    const category = document.getElementById('categoryFilter').value;
-    const type = document.getElementById('typeFilter').value;
-    const sort = document.getElementById('sortFilter').value;
-
-    let filtered = allProducts.filter(product => {
-        const matchesSearch = product.name.toLowerCase().includes(searchText) || 
-                             (product.description || '').toLowerCase().includes(searchText);
-        const matchesCategory = category === 'all' || product.category === category;
-        const matchesType = type === 'all' || product.type === type;
-        
-        return matchesSearch && matchesCategory && matchesType;
-    });
-
-    if (sort === 'price_asc') {
-        filtered.sort((a, b) => a.price - b.price);
-    } else if (sort === 'price_desc') {
-        filtered.sort((a, b) => b.price - a.price);
-    } else if (sort === 'date_desc') {
-        filtered.sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0));
-    } else if (sort === 'date_asc') {
-        filtered.sort((a, b) => new Date(a.date || a.createdAt || 0) - new Date(b.date || b.createdAt || 0));
+    if (currentPage === 'favorites') {
+        return;
     }
 
-    displayProducts(filtered);
+    loadProductsFromAPI();
 }
 
 function openProductModal(product) {
     currentModalProduct = product;
     const modal = document.getElementById('productModal');
-    const isFavorite = favorites.some(f => f.id === product.id);
-    const isInCart = cart.some(item => item.id === product.id);
-    
-    document.getElementById('modalImage').src = product.image || 'https://via.placeholder.com/600x300?text=Нет+фото';
-    document.getElementById('modalName').textContent = product.name;
-    document.getElementById('modalDescription').textContent = product.description || 'Нет описания';
-    document.getElementById('modalCategory').textContent = `${product.category} • ${product.type}`;
-    document.getElementById('modalPrice').textContent = `${product.price} ₽`;
-    document.getElementById('modalSeller').textContent = `👤 Продавец: ${product.seller || 'Не указан'}`;
-    
-    const favoriteBtn = document.getElementById('modalFavoriteBtn');
-    if (favoriteBtn) favoriteBtn.textContent = isFavorite ? '❤️' : '🤍';
-    
-    const buyBtn = document.getElementById('modalBuyBtn');
-    if (buyBtn) {
-        buyBtn.textContent = isInCart ? '✓ В корзине' : 'Купить';
-        if (isInCart) {
-            buyBtn.style.backgroundColor = '#27ae60';
-        } else {
-            buyBtn.style.backgroundColor = '#3498db';
-        }
+    if (!modal) {
+        return;
     }
-    
+
+    const isFavorite = favorites.some(item => item.id === product.id);
+    const isInCart = cart.some(item => item.id === product.id);
+
+    document.getElementById('modalImage').src = product.image || fallbackImage;
+    document.getElementById('modalName').textContent = product.name || 'Без названия';
+    document.getElementById('modalDescription').textContent = product.description || 'Описание отсутствует';
+    document.getElementById('modalCategory').textContent = [product.category, product.type].filter(Boolean).join(' • ');
+    document.getElementById('modalPrice').textContent = `${Number(product.price || 0).toLocaleString('ru-RU')} ₽`;
+    document.getElementById('modalSeller').textContent = `Продавец: ${product.seller || 'Не указан'}`;
+    updateSellerActions(product);
+
+    const favoriteButton = document.getElementById('modalFavoriteBtn');
+    if (favoriteButton) {
+        favoriteButton.textContent = isFavorite ? '♥' : '♡';
+    }
+
+    const buyButton = document.getElementById('modalBuyBtn');
+    if (buyButton) {
+        buyButton.textContent = isInCart ? 'В корзине' : 'Купить';
+        buyButton.style.backgroundColor = isInCart ? '#27ae60' : '#3498db';
+    }
+
     modal.style.display = 'block';
 }
 
 function displayProducts(productsToShow) {
     const container = document.getElementById('productsContainer');
-    if (!container) return;
-    
-    if (productsToShow.length === 0) {
-        container.innerHTML = '<div class="no-products">😕 Товары не найдены</div>';
+    if (!container) {
         return;
     }
-    
-    container.innerHTML = productsToShow.map(product => {
-        const isFavorite = favorites.some(f => f.id === product.id);
-        const isInCart = cart.some(item => item.id === product.id);
-        
-        // Экранируем JSON для передачи в onclick
-        const productJson = JSON.stringify(product).replace(/"/g, '&quot;');
-        
-        return `
-            <div class="product-card" onclick="openProductModal(${productJson})">
-                <img src="${product.image || 'https://via.placeholder.com/280x180?text=Нет+фото'}" 
-                     alt="${product.name}" 
-                     class="product-image"
-                     onerror="this.src='https://via.placeholder.com/280x180?text=Ошибка'">
-                <div class="product-info">
-                    <div class="product-name">${escapeHtml(product.name)}</div>
-                    <div class="product-description">${escapeHtml(product.description || 'Нет описания')}</div>
-                    <div class="product-meta">
-                        <span class="product-category">${product.category} • ${product.type}</span>
-                        <span class="product-price">${product.price} ₽</span>
-                    </div>
-                    <div class="product-footer">
-                        <span class="product-seller">👤 ${escapeHtml(product.seller || 'Продавец')}</span>
-                        <button class="favorite-btn" onclick="event.stopPropagation(); toggleFavorite(${product.id})">
-                            ${isFavorite ? '❤️' : '🤍'}
-                        </button>
-                    </div>
-                    <div class="product-actions">
-                        <button class="buy-btn ${isInCart ? 'added' : ''}" onclick="event.stopPropagation(); toggleCart(${product.id})">
-                            ${isInCart ? '✓ В корзине' : 'Купить'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
+
+    if (productsToShow.length === 0) {
+        container.innerHTML = '<div class="no-products">Товары не найдены</div>';
+        return;
+    }
+
+    container.innerHTML = productsToShow.map(renderProductCard).join('');
 }
 
-// Функция для экранирования HTML (безопасность)
+function renderProductCard(product) {
+    const isFavorite = favorites.some(item => item.id === product.id);
+    const isInCart = cart.some(item => item.id === product.id);
+    const productJson = encodeURIComponent(JSON.stringify(product));
+    const meta = [product.category, product.type].filter(Boolean).join(' • ');
+
+    return `
+        <div class="product-card" onclick="openProductModal(JSON.parse(decodeURIComponent('${productJson}')))">
+            <img
+                src="${escapeAttribute(product.image || fallbackImage)}"
+                alt="${escapeAttribute(product.name || 'Товар')}"
+                class="product-image"
+                onerror="this.src='${fallbackImage}'">
+            <div class="product-info">
+                <div class="product-name">${escapeHtml(product.name || 'Без названия')}</div>
+                <div class="product-description">${escapeHtml(product.description || 'Описание отсутствует')}</div>
+                <div class="product-meta">
+                    <span class="product-category">${escapeHtml(meta)}</span>
+                    <span class="product-price">${Number(product.price || 0).toLocaleString('ru-RU')} ₽</span>
+                </div>
+                <div class="product-footer">
+                    <span class="product-seller">${escapeHtml(product.seller || 'Продавец')}</span>
+                    <button class="favorite-btn" onclick="event.stopPropagation(); toggleFavorite(${product.id})">
+                        ${isFavorite ? '♥' : '♡'}
+                    </button>
+                </div>
+                <div class="product-actions">
+                    <button class="buy-btn ${isInCart ? 'added' : ''}" onclick="event.stopPropagation(); toggleCart(${product.id})">
+                        ${isInCart ? 'В корзине' : 'Купить'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function showFavorites() {
+    const favoriteIds = new Set(favorites.map(item => item.id));
+    displayProducts(allProducts.filter(product => favoriteIds.has(product.id)));
+}
+
+async function toggleFavorite(productId) {
+    if (!currentUser) {
+        window.location.href = 'index.html';
+        return;
+    }
+
+    const wasFavorite = favorites.some(item => item.id === productId);
+
+    try {
+        await requestNoContent(API.toggleFavoriteUrl(productId), {
+            method: wasFavorite ? 'DELETE' : 'POST',
+            fallbackMessage: wasFavorite
+                ? 'Не удалось удалить товар из избранного'
+                : 'Не удалось добавить товар в избранное'
+        });
+
+        await loadFavoritesFromAPI();
+        renderCurrentPage();
+        refreshModalState(productId);
+        showToast(wasFavorite ? 'Товар удален из избранного' : 'Товар добавлен в избранное');
+    } catch (error) {
+        showToast(error.message || 'Не удалось обновить избранное', true);
+    }
+}
+
+async function toggleCart(productId) {
+    if (!currentUser) {
+        window.location.href = 'index.html';
+        return;
+    }
+
+    const wasInCart = cart.some(item => item.id === productId);
+
+    try {
+        await requestNoContent(
+            wasInCart ? API.removeFromCartUrl(productId) : API.addToCartUrl(productId),
+            {
+                method: wasInCart ? 'DELETE' : 'POST',
+                fallbackMessage: wasInCart
+                    ? 'Не удалось удалить товар из корзины'
+                    : 'Не удалось добавить товар в корзину'
+            }
+        );
+
+        await loadCartFromAPI();
+        updateCartBadge();
+        renderCurrentPage();
+        refreshModalState(productId);
+        showToast(wasInCart ? 'Товар удален из корзины' : 'Товар добавлен в корзину');
+    } catch (error) {
+        showToast(error.message || 'Не удалось обновить корзину', true);
+    }
+}
+
+function refreshModalState(productId) {
+    if (!currentModalProduct || currentModalProduct.id !== productId) {
+        return;
+    }
+
+    const isFavorite = favorites.some(item => item.id === productId);
+    const isInCart = cart.some(item => item.id === productId);
+
+    const favoriteButton = document.getElementById('modalFavoriteBtn');
+    if (favoriteButton) {
+        favoriteButton.textContent = isFavorite ? '♥' : '♡';
+    }
+
+    const buyButton = document.getElementById('modalBuyBtn');
+    if (buyButton) {
+        buyButton.textContent = isInCart ? 'В корзине' : 'Купить';
+        buyButton.style.backgroundColor = isInCart ? '#27ae60' : '#3498db';
+    }
+}
+
+function updateCartBadge() {
+    const badge = document.getElementById('cartBadge');
+    if (!badge) {
+        return;
+    }
+
+    badge.style.display = cart.length > 0 ? 'inline-block' : 'none';
+    badge.textContent = String(cart.length);
+}
+
+function updateSellerActions(product) {
+    const sellerActions = document.getElementById('modalSellerActions');
+    const profileButton = document.getElementById('modalProfileBtn');
+    const chatButton = document.getElementById('modalChatBtn');
+    const sellerId = Number(product?.sellerId || 0);
+    const isOwnListing = Boolean(currentUser && sellerId > 0 && Number(currentUser.id) === sellerId);
+    const canOpenProfile = sellerId > 0 && !isOwnListing;
+    const canStartChat = Boolean(product?.id) && !isOwnListing;
+
+    if (profileButton) {
+        profileButton.style.display = canOpenProfile ? 'inline-block' : 'none';
+    }
+
+    if (chatButton) {
+        chatButton.style.display = canStartChat ? 'inline-block' : 'none';
+    }
+
+    if (sellerActions) {
+        sellerActions.style.display = canOpenProfile || canStartChat ? 'flex' : 'none';
+    }
+}
+
+function openSellerProfile() {
+    if (!currentModalProduct) {
+        return;
+    }
+
+    const sellerId = Number(currentModalProduct.sellerId || 0);
+    if (!sellerId) {
+        showToast('Не удалось открыть профиль продавца', true);
+        return;
+    }
+
+    window.location.href = `public-profile.html?id=${sellerId}&product=${currentModalProduct.id}`;
+}
+
+function startChatWithSeller() {
+    if (!currentModalProduct) {
+        return;
+    }
+
+    if (!currentUser) {
+        window.location.href = 'index.html';
+        return;
+    }
+
+    const sellerId = Number(currentModalProduct.sellerId || 0);
+    if (sellerId > 0 && Number(currentUser.id) === sellerId) {
+        showToast('Нельзя начать чат с самим собой', true);
+        return;
+    }
+
+    const chatUrl = sellerId > 0
+        ? `chat.html?product=${currentModalProduct.id}&participant=${sellerId}`
+        : `chat.html?product=${currentModalProduct.id}`;
+
+    window.location.href = chatUrl;
+}
+
+async function openRequestedProductFromUrl() {
+    if (!requestedProductId) {
+        return;
+    }
+
+    let product = allProducts.find(item => item.id === requestedProductId) || null;
+
+    if (!product) {
+        try {
+            const apiProduct = await requestJson(API.getAdvertisementUrl(requestedProductId), {
+                useCsrf: false,
+                fallbackMessage: 'Не удалось открыть объявление'
+            });
+
+            product = convertAPIToLocalFormat(apiProduct);
+        } catch (error) {
+            showToast(error.message || 'Не удалось открыть объявление', true);
+            requestedProductId = null;
+            return;
+        }
+    }
+
+    openProductModal(product);
+    requestedProductId = null;
+}
+
+function showToast(message, isError = false) {
+    const toast = document.createElement('div');
+    toast.style.cssText = `position:fixed;bottom:20px;right:20px;background:${isError ? '#e74c3c' : '#27ae60'};color:white;padding:12px 20px;border-radius:8px;z-index:10000;`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
 function escapeHtml(str) {
-    if (!str) return '';
-    return str
+    if (!str) {
+        return '';
+    }
+
+    return String(str)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -449,90 +507,6 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
-function showFavorites() {
-    const favoritesToShow = allProducts.filter(product => 
-        favorites.some(f => f.id === product.id)
-    );
-    displayProducts(favoritesToShow);
-}
-
-async function toggleFavorite(productId) {
-    const product = allProducts.find(p => p.id === productId);
-    if (!product) return;
-    
-    const index = favorites.findIndex(f => f.id === productId);
-    const wasFavorite = index !== -1;
-    
-    // Сначала обновляем локально
-    if (index === -1) {
-        favorites.push(product);
-    } else {
-        favorites.splice(index, 1);
-    }
-    
-    localStorage.setItem('favorites', JSON.stringify(favorites));
-    
-    // Синхронизируем с API (если пользователь авторизован)
-    if (currentUser) {
-        await syncFavoriteToAPI(productId, !wasFavorite);
-    }
-    
-    // Обновляем модальное окно если открыто
-    if (currentModalProduct && currentModalProduct.id === productId) {
-        const isFavorite = favorites.some(f => f.id === productId);
-        const favoriteBtn = document.getElementById('modalFavoriteBtn');
-        if (favoriteBtn) {
-            favoriteBtn.textContent = isFavorite ? '❤️' : '🤍';
-        }
-    }
-    
-    // Обновляем отображение в зависимости от текущей страницы
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('page') === 'favorites') {
-        showFavorites();
-    } else {
-        filterProducts();
-    }
-}
-
-async function toggleCart(productId) {
-    const product = allProducts.find(p => p.id === productId);
-    if (!product) return;
-    
-    const index = cart.findIndex(item => item.id === productId);
-    const wasInCart = index !== -1;
-    
-    // Сначала обновляем локально
-    if (index === -1) {
-        cart.push({...product, quantity: 1});
-    } else {
-        cart.splice(index, 1);
-    }
-    
-    localStorage.setItem('cart', JSON.stringify(cart));
-    updateCartBadge();
-    
-    // Синхронизируем с API (если пользователь авторизован)
-    if (currentUser) {
-        await syncCartToAPI(productId, !wasInCart);
-    }
-    
-    // Обновляем модальное окно если открыто
-    if (currentModalProduct && currentModalProduct.id === productId) {
-        const isInCart = cart.some(item => item.id === productId);
-        const buyBtn = document.getElementById('modalBuyBtn');
-        if (buyBtn) {
-            buyBtn.textContent = isInCart ? '✓ В корзине' : 'Купить';
-            buyBtn.style.backgroundColor = isInCart ? '#27ae60' : '#3498db';
-        }
-    }
-    
-    filterProducts(); // Обновляем отображение кнопок
-}
-
-function logout() {
-    localStorage.removeItem('user');
-    localStorage.removeItem('favorites');
-    localStorage.removeItem('cart');
-    window.location.href = 'index.html';
+function escapeAttribute(str) {
+    return escapeHtml(str).replace(/`/g, '&#96;');
 }

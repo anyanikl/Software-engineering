@@ -1,4 +1,5 @@
 using FunApi.Interfaces;
+using FunApi.Exceptions;
 using FunDto.Models.Contracts.Auth;
 using FunDto.Models.Internal.Auth;
 using Microsoft.AspNetCore.Antiforgery;
@@ -114,7 +115,19 @@ namespace FunApi.Controllers
                 });
             }
 
-            return Ok(ToContract(result.User));
+            return Ok(new AuthResponseDto
+            {
+                IsSuccess = true,
+                User = new UserSessionDto
+                {
+                    Id = result.User.Id,
+                    Email = result.User.Email,
+                    FullName = result.User.FullName,
+                    Role = result.User.Role
+                },
+                RequiresEmailConfirmation = true,
+                Message = "Registration completed. Confirm your email before signing in."
+            });
         }
 
         [HttpPost("forgot-password")]
@@ -153,10 +166,39 @@ namespace FunApi.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
-            catch (KeyNotFoundException ex)
+            catch (DomainValidationException ex)
             {
-                return NotFound(new { message = ex.Message });
+                return BadRequest(new { message = ex.Message });
             }
+        }
+
+        [HttpGet("confirm-email")]
+        [AllowAnonymous]
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> ConfirmEmail([FromQuery] string token, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _authService.ConfirmEmailAsync(token, cancellationToken);
+                return NoContent();
+            }
+            catch (DomainValidationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("resend-confirmation")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResendConfirmation([FromBody] ForgotPasswordRequestDto request, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            await _authService.RequestEmailConfirmationAsync(request.Email, cancellationToken);
+            return NoContent();
         }
 
         [HttpPost("logout")]
@@ -238,7 +280,6 @@ namespace FunApi.Controllers
                     Id = user.Id,
                     Email = user.Email,
                     FullName = user.FullName,
-                    PhoneNumber = user.PhoneNumber,
                     Role = user.Role
                 }
             };

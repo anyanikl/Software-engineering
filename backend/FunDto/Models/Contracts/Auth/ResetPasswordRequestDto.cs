@@ -9,10 +9,12 @@ namespace FunDto.Models.Contracts.Auth
         public string Token { get; set; } = null!;
 
         [Required]
+        [MinLength(8)]
         [MaxLength(100)]
         public string NewPassword { get; set; } = null!;
 
         [Required]
+        [MinLength(8)]
         [MaxLength(100)]
         public string ConfirmPassword { get; set; } = null!;
     }

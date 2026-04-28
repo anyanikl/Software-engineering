@@ -1,33 +1,33 @@
 let config = {
-    universityDomains: ['.edu', '.ac.ru', 'university.ru', 'kpfu.ru'],
+    universityDomains: ['.edu', '.ac.ru'],
     universities: [],
     faculties: [],
     passwordMinLength: 8
 };
 
+document.addEventListener('DOMContentLoaded', async () => {
+    await fetchCsrfToken();
+    await loadConfig();
+});
+
 async function loadConfig() {
     try {
-        const response = await fetch('/api/config');
-        
-        if (response.ok) {
-            const data = await response.json();
-            config = { ...config, ...data };
-            console.log('Конфигурация загружена:', config);
-            
-            populateSelect('regUniversity', config.universities, 'Выберите университет');
-            populateSelect('regFaculty', config.faculties, 'Выберите направление');
-        } else {
-            setDefaultConfig();
-        }
-    } catch (error) {
-        console.error('Ошибка загрузки конфигурации:', error);
-        setDefaultConfig();
-    }
-}
+        const data = await requestJson(API.getConfigUrl(), {
+            method: 'GET',
+            useCsrf: false,
+            fallbackMessage: 'Не удалось загрузить конфигурацию'
+        });
 
-function setDefaultConfig() {
-    config.universities = ['КФУ', 'КИУ', 'КАИ', 'КГЭУ', 'РАНХИХИГС'];
-    config.faculties = ['Информационные технологии', 'Экономика', 'Право', 'Медицина', 'Иностранные языки'];
+        config = {
+            universityDomains: Array.isArray(data.universityDomains) ? data.universityDomains : config.universityDomains,
+            universities: Array.isArray(data.universities) ? data.universities : [],
+            faculties: Array.isArray(data.faculties) ? data.faculties : [],
+            passwordMinLength: Number(data.passwordMinLength) || 8
+        };
+    } catch (error) {
+        console.error('Config load failed:', error);
+    }
+
     populateSelect('regUniversity', config.universities, 'Выберите университет');
     populateSelect('regFaculty', config.faculties, 'Выберите направление');
 }
@@ -35,7 +35,7 @@ function setDefaultConfig() {
 function populateSelect(selectId, items, defaultText) {
     const select = document.getElementById(selectId);
     if (!select) return;
-    
+
     select.innerHTML = `<option value="">${defaultText}</option>`;
     items.forEach(item => {
         const option = document.createElement('option');
@@ -46,31 +46,31 @@ function populateSelect(selectId, items, defaultText) {
 }
 
 function isValidUniversityEmail(email) {
-    const domains = config.universityDomains;
-    return domains.some(domain => email.toLowerCase().endsWith(domain));
+    const normalizedEmail = String(email || '').toLowerCase();
+    return config.universityDomains.some(domain => normalizedEmail.endsWith(domain.toLowerCase()));
 }
 
 function isValidPassword(password) {
     const minLength = config.passwordMinLength || 8;
-    return password.length >= minLength && /[A-Za-z]/.test(password) && /[0-9]/.test(password);
+    return password.length >= minLength && /[A-Za-zА-Яа-я]/.test(password) && /[0-9]/.test(password);
 }
 
 function switchTab(tab) {
     const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(t => t.classList.remove('active'));
-    
+    tabs.forEach(item => item.classList.remove('active'));
+
     if (tab === 'login') {
-        tabs[0].classList.add('active');
+        tabs[0]?.classList.add('active');
         document.getElementById('loginForm').style.display = 'block';
         document.getElementById('registerForm').style.display = 'none';
         document.getElementById('forgotPasswordForm').style.display = 'none';
     } else {
-        tabs[1].classList.add('active');
+        tabs[1]?.classList.add('active');
         document.getElementById('loginForm').style.display = 'none';
         document.getElementById('registerForm').style.display = 'block';
         document.getElementById('forgotPasswordForm').style.display = 'none';
     }
-    
+
     hideMessages();
 }
 
@@ -78,7 +78,7 @@ function showForgotPassword() {
     document.getElementById('loginForm').style.display = 'none';
     document.getElementById('registerForm').style.display = 'none';
     document.getElementById('forgotPasswordForm').style.display = 'block';
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(item => item.classList.remove('active'));
     hideMessages();
 }
 
@@ -86,8 +86,8 @@ function showLoginForm() {
     document.getElementById('loginForm').style.display = 'block';
     document.getElementById('registerForm').style.display = 'none';
     document.getElementById('forgotPasswordForm').style.display = 'none';
-    document.querySelectorAll('.tab')[0].classList.add('active');
-    document.querySelectorAll('.tab')[1].classList.remove('active');
+    document.querySelectorAll('.tab')[0]?.classList.add('active');
+    document.querySelectorAll('.tab')[1]?.classList.remove('active');
     hideMessages();
 }
 
@@ -99,221 +99,120 @@ function hideMessages() {
 }
 
 async function login() {
-    const email = document.getElementById('loginEmail').value;
+    const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
-    
+
     if (!email || !password) {
-        showError('Заполните все поля');
+        showError('Заполните email и пароль');
         return;
     }
-    
-    if (!csrfToken) {
-        await fetchCsrfToken();
-    }
-    
+
     try {
-        const response = await fetch(API.getLoginUrl(), {
+        const data = await requestJson(API.getLoginUrl(), {
             method: 'POST',
-            headers: getSecureHeaders(true),
-            credentials: 'include',
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, password }),
+            fallbackMessage: 'Ошибка входа'
         });
-        
-        const data = await response.json();
-        
-        if (response.ok && data.isSuccess) {
-            showSuccess(`Добро пожаловать, ${data.user.fullName || data.user.email}!`);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            
-            setTimeout(() => {
-                window.location.href = 'shop.html';
-            }, 1000);
-        } else if (response.status === 401) {
-            showError(data.errors?.join(', ') || 'Неверный email или пароль');
-        } else {
-            showError(data.errors?.join(', ') || data.message || 'Ошибка входа');
+
+        if (!data?.isSuccess || !data.user) {
+            throw new Error((data?.errors || ['Ошибка входа']).join(', '));
         }
+
+        showSuccess(`Добро пожаловать, ${data.user.fullName || data.user.email}!`);
+        setTimeout(() => {
+            window.location.href = 'shop.html';
+        }, 800);
     } catch (error) {
-        console.error('Ошибка:', error);
-        showError('Ошибка соединения с сервером');
+        showError(error.message || 'Ошибка входа');
     }
 }
 
 async function register() {
-    const email = document.getElementById('regEmail').value;
-    const fullName = document.getElementById('regFullName').value;
-    const phone = document.getElementById('regPhone').value;
+    const email = document.getElementById('regEmail').value.trim();
+    const fullName = document.getElementById('regFullName').value.trim();
+    const phone = document.getElementById('regPhone').value.trim();
     const university = document.getElementById('regUniversity').value;
     const faculty = document.getElementById('regFaculty').value;
     const password = document.getElementById('regPassword').value;
     const confirmPassword = document.getElementById('regConfirmPassword').value;
-    
+
     if (!email || !fullName || !phone || !university || !faculty || !password || !confirmPassword) {
         showError('Заполните все поля');
         return;
     }
-    
+
     if (!isValidUniversityEmail(email)) {
         showError('Используйте университетскую почту');
         return;
     }
-    
+
     if (!isValidPassword(password)) {
         showError(`Пароль должен быть минимум ${config.passwordMinLength} символов, содержать буквы и цифры`);
         return;
     }
-    
+
     if (password !== confirmPassword) {
         showError('Пароли не совпадают');
         return;
     }
-    
-    if (!csrfToken) {
-        await fetchCsrfToken();
-    }
-    
+
     try {
-        const response = await fetch(API.getRegisterUrl(), {
+        const data = await requestJson(API.getRegisterUrl(), {
             method: 'POST',
-            headers: getSecureHeaders(true),
-            credentials: 'include',
             body: JSON.stringify({
-                email, fullName, phone, university, faculty,
-                password, confirmPassword
-            })
+                email,
+                fullName,
+                phone,
+                university,
+                faculty,
+                password,
+                confirmPassword
+            }),
+            fallbackMessage: 'Ошибка регистрации'
         });
-        
-        const data = await response.json();
-        
-        if (response.ok && data.isSuccess) {
-            showSuccess('Регистрация прошла успешно! Теперь вы можете войти.');
-            
-            document.getElementById('regEmail').value = '';
-            document.getElementById('regFullName').value = '';
-            document.getElementById('regPhone').value = '';
-            document.getElementById('regUniversity').value = '';
-            document.getElementById('regFaculty').value = '';
-            document.getElementById('regPassword').value = '';
-            document.getElementById('regConfirmPassword').value = '';
-            
-            setTimeout(() => {
-                showLoginForm();
-            }, 2000);
-        } else {
-            showError(data.errors?.join(', ') || data.message || 'Ошибка регистрации');
-        }
+
+        showSuccess(data?.message || 'Регистрация завершена. Подтвердите email перед входом.');
+        clearRegistrationForm();
+        setTimeout(showLoginForm, 2500);
     } catch (error) {
-        console.error('Ошибка:', error);
-        showError('Ошибка соединения с сервером');
+        showError(error.message || 'Ошибка регистрации');
     }
 }
 
+function clearRegistrationForm() {
+    document.getElementById('regEmail').value = '';
+    document.getElementById('regFullName').value = '';
+    document.getElementById('regPhone').value = '';
+    document.getElementById('regUniversity').value = '';
+    document.getElementById('regFaculty').value = '';
+    document.getElementById('regPassword').value = '';
+    document.getElementById('regConfirmPassword').value = '';
+}
+
 async function sendRecovery() {
-    const email = document.getElementById('recoveryEmail').value;
-    
+    const email = document.getElementById('recoveryEmail').value.trim();
+
     if (!email) {
         showError('Введите email');
         return;
     }
-    
+
     if (!isValidUniversityEmail(email)) {
         showError('Используйте университетскую почту');
         return;
     }
-    
-    if (!csrfToken) {
-        await fetchCsrfToken();
-    }
-    
+
     try {
-        const response = await fetch(API.getForgotPasswordUrl(), {
+        await requestNoContent(API.getForgotPasswordUrl(), {
             method: 'POST',
-            headers: getSecureHeaders(true),
-            credentials: 'include',
-            body: JSON.stringify({ email })
+            body: JSON.stringify({ email }),
+            fallbackMessage: 'Ошибка отправки письма для восстановления'
         });
-        
-        if (response.status === 204) {
-            showSuccess('Инструкция по восстановлению отправлена на ваш email');
-            document.getElementById('recoveryEmail').value = '';
-            
-            setTimeout(() => {
-                showLoginForm();
-            }, 3000);
-        } else {
-            const data = await response.json().catch(() => ({}));
-            showError(data.message || 'Ошибка. Попробуйте позже.');
-        }
+
+        showSuccess('Если аккаунт найден, инструкция для восстановления отправлена на email');
+        document.getElementById('recoveryEmail').value = '';
+        setTimeout(showLoginForm, 2500);
     } catch (error) {
-        console.error('Ошибка:', error);
-        showError('Ошибка соединения с сервером');
+        showError(error.message || 'Ошибка отправки письма');
     }
 }
-
-async function resetPassword(token, newPassword, confirmPassword) {
-    if (!newPassword || !confirmPassword) {
-        showError('Заполните все поля');
-        return false;
-    }
-    
-    if (newPassword !== confirmPassword) {
-        showError('Пароли не совпадают');
-        return false;
-    }
-    
-    if (!isValidPassword(newPassword)) {
-        showError(`Пароль должен быть минимум ${config.passwordMinLength} символов, содержать буквы и цифры`);
-        return false;
-    }
-    
-    if (!csrfToken) {
-        await fetchCsrfToken();
-    }
-    
-    try {
-        const response = await fetch(API.getResetPasswordUrl(), {
-            method: 'POST',
-            headers: getSecureHeaders(true),
-            credentials: 'include',
-            body: JSON.stringify({ token, newPassword, confirmPassword })
-        });
-        
-        if (response.status === 204) {
-            showSuccess('Пароль успешно изменен! Теперь вы можете войти.');
-            return true;
-        } else {
-            const data = await response.json().catch(() => ({}));
-            showError(data.message || 'Ошибка сброса пароля');
-            return false;
-        }
-    } catch (error) {
-        console.error('Ошибка:', error);
-        showError('Ошибка соединения с сервером');
-        return false;
-    }
-}
-
-async function getCurrentUser() {
-    try {
-        const response = await fetch(API.getMeUrl(), {
-            method: 'GET',
-            headers: getSecureHeaders(false),
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.isSuccess && data.user) {
-                localStorage.setItem('user', JSON.stringify(data.user));
-                return data.user;
-            }
-        }
-        return null;
-    } catch (error) {
-        console.error('Ошибка получения пользователя:', error);
-        return null;
-    }
-}
-
-loadConfig();
-fetchCsrfToken();

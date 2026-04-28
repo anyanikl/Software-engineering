@@ -1,192 +1,81 @@
 let currentUser = null;
 let targetUser = null;
 let targetUserId = null;
+let targetProductId = null;
 
 window.onload = async function() {
     await fetchCsrfToken();
     currentUser = await checkAuth();
-    
+
     const urlParams = new URLSearchParams(window.location.search);
-    targetUserId = parseInt(urlParams.get('id'));
-    const productId = urlParams.get('product');
-    
+    targetUserId = Number(urlParams.get('id'));
+    targetProductId = urlParams.get('product') ? Number(urlParams.get('product')) : null;
+
     if (!targetUserId) {
         showError('Пользователь не найден');
         setTimeout(() => {
             window.location.href = 'shop.html';
-        }, 2000);
+        }, 1500);
         return;
     }
-    
-    if (productId) {
-        window.targetProductId = parseInt(productId);
-    }
-    
+
     await loadUserProfile(targetUserId);
 };
 
-// Преобразование PublicUserProfileDto в формат фронта
-function convertPublicProfileToLocalFormat(apiProfile) {
-    // Преобразуем activeAdvertisements (AdvertisementCardDto[])
-    const activeAdvertisements = (apiProfile.activeAdvertisements || []).map(ad => ({
-        id: ad.id,
-        name: ad.title,
-        description: ad.shortDescription || 'Нет описания',
-        price: ad.price,
-        category: '',  // в AdvertisementCardDto нет course
-        type: ad.type,
-        image: ad.mainImageUrl,
-        seller: ad.sellerName,
-        isFavorite: ad.isFavorite || false,
-        isInCart: ad.isInCart || false
-    }));
-    
-    // Преобразуем reviews (ReviewDto[])
-    const reviews = (apiProfile.reviews || []).map(review => ({
-        id: review.id,
-        orderId: review.orderId,
-        authorId: review.authorId,
-        authorName: review.authorName,
-        rating: review.rating,
-        comment: review.comment,
-        createdAt: review.createdAt,
-        productName: review.productName
-    }));
-    
-    return {
-        id: apiProfile.id,
-        fullName: apiProfile.fullName,
-        avatarUrl: apiProfile.avatarUrl || null,
-        faculty: apiProfile.faculty || '',
-        rating: apiProfile.rating || 0,
-        reviewsCount: apiProfile.reviewsCount || 0,
-        reviews: reviews,
-        activeAdvertisements: activeAdvertisements
-    };
-}
-
 async function loadUserProfile(userId) {
     showLoading();
-    
+
     try {
         const response = await fetch(API.getUserProfileUrl(userId), {
             credentials: 'include'
         });
-        
-        if (response.ok) {
-            const data = await response.json();
-            targetUser = convertPublicProfileToLocalFormat(data);
-            displayProfile();
-            hideLoading();
-            return;
+
+        if (!response.ok) {
+            throw new Error(await parseApiError(response, 'Не удалось загрузить профиль'));
         }
+
+        targetUser = await response.json();
+        displayProfile();
     } catch (error) {
-        console.error('Ошибка загрузки профиля из API:', error);
+        showError(error.message || 'Не удалось загрузить профиль');
+    } finally {
+        hideLoading();
     }
-    
-    // Fallback на localStorage
-    const users = JSON.parse(localStorage.getItem('users')) || [];
-    const user = users.find(u => u.id === userId);
-    
-    if (!user) {
-        targetUser = {
-            id: userId,
-            fullName: 'Пользователь',
-            avatarUrl: null,
-            faculty: '',
-            rating: 0,
-            reviewsCount: 0,
-            reviews: [],
-            activeAdvertisements: []
-        };
-    } else {
-        targetUser = {
-            id: user.id,
-            fullName: user.fullName || user.name,
-            avatarUrl: user.avatarUrl || null,
-            faculty: user.faculty || '',
-            rating: user.rating || 0,
-            reviewsCount: 0,
-            reviews: [],
-            activeAdvertisements: []
-        };
-    }
-    
-    // Загружаем отзывы из localStorage
-    const reviews = JSON.parse(localStorage.getItem('reviews')) || [];
-    targetUser.reviews = reviews.filter(r => r.sellerId === userId).map(r => ({
-        id: r.id,
-        authorName: r.authorName,
-        rating: r.rating,
-        comment: r.comment || r.text,
-        createdAt: r.createdAt || r.date,
-        productName: r.productName
-    }));
-    targetUser.reviewsCount = targetUser.reviews.length;
-    
-    // Вычисляем рейтинг
-    if (targetUser.reviews.length > 0) {
-        const avgRating = targetUser.reviews.reduce((sum, r) => sum + r.rating, 0) / targetUser.reviews.length;
-        targetUser.rating = avgRating;
-    }
-    
-    // Загружаем объявления из localStorage
-    const listings = JSON.parse(localStorage.getItem('listings')) || [];
-    targetUser.activeAdvertisements = listings.filter(l => 
-        (l.sellerId === userId || l.sellerEmail === user?.email) && 
-        l.status === 'approved'
-    ).map(l => ({
-        id: l.id,
-        name: l.title || l.name,
-        description: l.description || 'Нет описания',
-        price: l.price,
-        category: l.category || '',
-        type: l.type,
-        image: l.mainImageUrl || l.image,
-        seller: l.sellerName || l.seller
-    }));
-    
-    displayProfile();
-    hideLoading();
 }
 
 function displayProfile() {
     const container = document.getElementById('profileContent');
-    if (!container) return;
-    
-    if (!targetUser) {
-        container.innerHTML = `
-            <div class="profile-card">
-                <div class="no-data">😕 Пользователь не найден</div>
-            </div>
-        `;
-        return;
-    }
-    
-    const reviews = targetUser.reviews || [];
-    const listings = targetUser.activeAdvertisements || [];
-    const avgRating = targetUser.rating || 0;
-    
+    if (!container || !targetUser) return;
+
+    const reviews = Array.isArray(targetUser.reviews) ? targetUser.reviews : [];
+    const listings = Array.isArray(targetUser.activeAdvertisements) ? targetUser.activeAdvertisements : [];
+    const canMessageUser = Boolean(currentUser && currentUser.id !== targetUser.id);
+    const canStartHeaderChat = canMessageUser && (Boolean(targetProductId) || listings.length === 1);
+
     container.innerHTML = `
         <div class="profile-card">
             <div class="profile-header">
                 <div class="profile-avatar">
-                    ${targetUser.avatarUrl ? `<img src="${targetUser.avatarUrl}" alt="${escapeHtml(targetUser.fullName)}">` : '👤'}
+                    ${targetUser.avatarUrl ? `<img src="${escapeHtml(targetUser.avatarUrl)}" alt="${escapeHtml(targetUser.fullName)}">` : '👤'}
                 </div>
                 <div class="profile-info">
                     <h1>${escapeHtml(targetUser.fullName)}</h1>
-                    ${targetUser.faculty ? `<p>🎓 ${escapeHtml(targetUser.faculty)}</p>` : ''}
+                    ${targetUser.faculty ? `<p>${escapeHtml(targetUser.faculty)}</p>` : ''}
                     <div class="rating">
-                        <span class="rating-stars">${getStars(avgRating)}</span>
-                        <span class="rating-value">${avgRating.toFixed(1)}</span>
+                        <span class="rating-stars">${getStars(targetUser.rating || 0)}</span>
+                        <span class="rating-value">${Number(targetUser.rating || 0).toFixed(1)}</span>
                         <span class="rating-count">(${targetUser.reviewsCount || reviews.length} отзывов)</span>
                     </div>
-                    ${currentUser && currentUser.id !== targetUser.id ? 
-                        `<button class="chat-btn" onclick="startChat()">💬 Написать сообщение</button>` : ''}
+                    ${canStartHeaderChat ? `
+                        <button class="chat-btn" onclick="startChat(${targetProductId || listings[0].id})">Написать по объявлению</button>
+                    ` : ''}
+                    ${canMessageUser && !canStartHeaderChat ? `
+                        <p class="chat-hint">Выберите объявление ниже, чтобы начать чат по конкретному товару.</p>
+                    ` : ''}
                 </div>
             </div>
         </div>
-        
+
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-value">${listings.length}</div>
@@ -197,55 +86,71 @@ function displayProfile() {
                 <div class="stat-label">Отзывов</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${listings.filter(l => l.status !== 'archived').length}</div>
-                <div class="stat-label">Активных</div>
+                <div class="stat-value">${Number(targetUser.rating || 0).toFixed(1)}</div>
+                <div class="stat-label">Рейтинг</div>
             </div>
         </div>
-        
-        <h2 class="section-title">📝 Отзывы</h2>
+
+        <h2 class="section-title">Отзывы</h2>
         <div class="reviews-list">
             ${reviews.length > 0 ? reviews.map(review => `
                 <div class="review-card">
                     <div class="review-header">
                         <div>
-                            <span class="review-author">👤 ${escapeHtml(review.authorName || 'Пользователь')}</span>
+                            <span class="review-author">${escapeHtml(review.authorName || 'Пользователь')}</span>
                             <span class="review-date">${formatDate(review.createdAt)}</span>
                         </div>
                         <span class="review-rating">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</span>
                     </div>
-                    <div class="review-text">${escapeHtml(review.comment)}</div>
-                    <div class="review-product">📦 Товар: ${escapeHtml(review.productName || 'Не указан')}</div>
+                    <div class="review-text">${escapeHtml(review.comment || '')}</div>
+                    <div class="review-product">Товар: ${escapeHtml(review.productName || 'Не указан')}</div>
                 </div>
             `).join('') : '<div class="no-data">Пока нет отзывов</div>'}
         </div>
-        
-        <h2 class="section-title">📦 Активные объявления</h2>
+
+        <h2 class="section-title">Активные объявления</h2>
         <div class="products-grid">
-            ${listings.length > 0 ? 
-                listings.map(product => `
-                    <div class="product-card" onclick="viewProduct(${product.id})">
-                        <img src="${product.image || 'https://via.placeholder.com/300x180?text=Нет+фото'}" 
-                             alt="${escapeHtml(product.name)}" 
-                             class="product-image"
-                             onerror="this.src='https://via.placeholder.com/300x180?text=Ошибка'">
-                        <div class="product-info">
-                            <div class="product-name">${escapeHtml(product.name)}</div>
-                            <div class="product-category">${escapeHtml(product.category || 'Без категории')} • ${escapeHtml(product.type || '')}</div>
-                            <div class="product-price">${(product.price || 0).toLocaleString()} ₽</div>
+            ${listings.length > 0 ? listings.map(product => `
+                <div class="product-card" onclick="viewProduct(${product.id})">
+                    <img src="${escapeHtml(product.mainImageUrl || 'https://via.placeholder.com/300x180?text=Нет+фото')}"
+                         alt="${escapeHtml(product.title)}"
+                         class="product-image"
+                         onerror="this.src='https://via.placeholder.com/300x180?text=Ошибка'">
+                    <div class="product-info">
+                        <div class="product-name">${escapeHtml(product.title)}</div>
+                        <div class="product-category">${escapeHtml(product.type || '')}</div>
+                        <div class="product-price">${Number(product.price || 0).toLocaleString('ru-RU')} ₽</div>
+                        <div class="product-actions">
+                            <button class="product-action-btn" onclick="event.stopPropagation(); viewProduct(${product.id})">Открыть</button>
+                            ${canMessageUser ? `
+                                <button class="product-action-btn product-chat-btn" onclick="event.stopPropagation(); startChat(${product.id})">Написать</button>
+                            ` : ''}
                         </div>
                     </div>
-                `).join('') : '<div class="no-data">Нет активных объявлений</div>'}
+                </div>
+            `).join('') : '<div class="no-data">Нет активных объявлений</div>'}
         </div>
     `;
 }
 
 function getStars(rating) {
-    const fullStars = Math.floor(rating);
-    const hasHalf = rating % 1 >= 0.5;
+    const roundedRating = Number(rating || 0);
+    const fullStars = Math.floor(roundedRating);
+    const hasHalf = roundedRating % 1 >= 0.5;
     let stars = '';
-    for (let i = 0; i < fullStars; i++) stars += '★';
-    if (hasHalf) stars += '½';
-    for (let i = 0; i < 5 - fullStars - (hasHalf ? 1 : 0); i++) stars += '☆';
+
+    for (let index = 0; index < fullStars; index += 1) {
+        stars += '★';
+    }
+
+    if (hasHalf) {
+        stars += 'Ѕ';
+    }
+
+    for (let index = 0; index < 5 - fullStars - (hasHalf ? 1 : 0); index += 1) {
+        stars += '☆';
+    }
+
     return stars;
 }
 
@@ -253,50 +158,28 @@ function viewProduct(productId) {
     window.location.href = `shop.html?product=${productId}`;
 }
 
-function startChat() {
+function startChat(productId) {
     if (!currentUser) {
-        if (confirm('Для отправки сообщения необходимо войти в систему. Перейти на страницу входа?')) {
-            window.location.href = 'index.html';
-        }
+        window.location.href = 'index.html';
         return;
     }
-    
-    if (window.targetProductId) {
-        window.location.href = `chat.html?product=${window.targetProductId}&seller=${targetUser.id}`;
-    } else {
-        window.location.href = `chat.html?seller=${targetUser.id}`;
+
+    const fallbackProductId = targetUser?.activeAdvertisements?.[0]?.id || null;
+    const resolvedProductId = productId || targetProductId || fallbackProductId;
+
+    if (!resolvedProductId) {
+        showError('Нельзя начать чат без объявления');
+        return;
     }
+
+    window.location.href = `chat.html?product=${resolvedProductId}&participant=${targetUser.id}`;
 }
 
 function showLoading() {
     const container = document.getElementById('profileContent');
     if (container) {
-        container.innerHTML = '<div class="loading-spinner">⏳ Загрузка профиля...</div>';
+        container.innerHTML = '<div class="loading-spinner">Загрузка профиля...</div>';
     }
 }
 
 function hideLoading() {}
-
-function showError(message) {
-    const toast = document.createElement('div');
-    toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#e74c3c;color:white;padding:12px 20px;border-radius:8px;z-index:10000;';
-    toast.textContent = '❌ ' + message;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-}
-
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU');
-}
-
-function escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
-    });
-}

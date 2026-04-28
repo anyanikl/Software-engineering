@@ -1,4 +1,5 @@
 using FunApi.Interfaces;
+using FunApi.Exceptions;
 using FunDto.Models.Contracts.Advertisements;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,7 +31,11 @@ namespace FunApi.Controllers
         [IgnoreAntiforgeryToken]
         public async Task<ActionResult<AdvertisementDto>> GetById(int id)
         {
-            try { return Ok(await _service.GetByIdAsync(id)); }
+            var viewerId = User.Identity?.IsAuthenticated == true
+                ? ControllerHelpers.GetCurrentUserId(this)
+                : null;
+
+            try { return Ok(await _service.GetByIdAsync(id, viewerId)); }
             catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         }
 
@@ -65,6 +70,47 @@ namespace FunApi.Controllers
             catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         }
 
+        [HttpPost("{id:int}/image")]
+        [Authorize]
+        [RequestSizeLimit(10_000_000)]
+        public async Task<ActionResult<object>> AddImage(int id, [FromForm] IFormFile? image, [FromForm] List<IFormFile>? images)
+        {
+            var userId = ControllerHelpers.GetCurrentUserId(this);
+            if (userId is null) return Unauthorized();
+
+            var files = new List<IFormFile>();
+            if (image is not null) files.Add(image);
+            if (images is not null) files.AddRange(images);
+
+            if (files.Count == 0)
+            {
+                return BadRequest(new { message = "Image file is required" });
+            }
+
+            try
+            {
+                var imageUrls = await _service.AddImagesAsync(userId.Value, id, files);
+                return Ok(new { imageUrls });
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+            catch (DomainValidationException ex) { return BadRequest(new { message = ex.Message }); }
+        }
+
+        [HttpDelete("{id:int}/image")]
+        [Authorize]
+        public async Task<IActionResult> DeleteImages(int id)
+        {
+            var userId = ControllerHelpers.GetCurrentUserId(this);
+            if (userId is null) return Unauthorized();
+
+            try
+            {
+                await _service.DeleteImagesAsync(userId.Value, id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        }
+
         [HttpPost("{id:int}/archive")]
         [Authorize]
         public async Task<IActionResult> Archive(int id)
@@ -74,6 +120,20 @@ namespace FunApi.Controllers
             try
             {
                 await _service.ArchiveAsync(userId.Value, id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        }
+
+        [HttpPost("{id:int}/restore")]
+        [Authorize]
+        public async Task<IActionResult> Restore(int id)
+        {
+            var userId = ControllerHelpers.GetCurrentUserId(this);
+            if (userId is null) return Unauthorized();
+            try
+            {
+                await _service.RestoreAsync(userId.Value, id);
                 return NoContent();
             }
             catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }

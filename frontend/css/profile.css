@@ -187,6 +187,18 @@ body {
     transform: translateY(-2px);
 }
 
+.avatar-upload label.disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none;
+}
+
+.avatar-upload label.disabled:hover {
+    background-color: #bdc3c7;
+    transform: none;
+}
+
 .avatar-upload button {
     background-color: #95a5a6;
     color: white;

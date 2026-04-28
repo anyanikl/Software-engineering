@@ -3,6 +3,8 @@
     public class ChatListItemDto
     {
         public int Id { get; set; }
+        public int AdvertisementId { get; set; }
+        public int InterlocutorId { get; set; }
         public string InterlocutorName { get; set; } = null!;
         public string AdvertisementTitle { get; set; } = null!;
         public string? LastMessage { get; set; }

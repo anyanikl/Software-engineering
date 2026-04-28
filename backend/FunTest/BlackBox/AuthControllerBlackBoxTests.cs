@@ -20,7 +20,6 @@ namespace FunTest.BlackBox
                     Id = 1,
                     Email = "user@university.ru",
                     FullName = "Test User",
-                    PhoneNumber = "+79991234567",
                     Role = "user"
                 }));
 
