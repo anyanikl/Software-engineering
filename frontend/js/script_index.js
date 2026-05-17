@@ -64,11 +64,13 @@ function switchTab(tab) {
         document.getElementById('loginForm').style.display = 'block';
         document.getElementById('registerForm').style.display = 'none';
         document.getElementById('forgotPasswordForm').style.display = 'none';
+        document.getElementById('resendConfirmationForm').style.display = 'none';
     } else {
         tabs[1]?.classList.add('active');
         document.getElementById('loginForm').style.display = 'none';
         document.getElementById('registerForm').style.display = 'block';
         document.getElementById('forgotPasswordForm').style.display = 'none';
+        document.getElementById('resendConfirmationForm').style.display = 'none';
     }
 
     hideMessages();
@@ -78,7 +80,23 @@ function showForgotPassword() {
     document.getElementById('loginForm').style.display = 'none';
     document.getElementById('registerForm').style.display = 'none';
     document.getElementById('forgotPasswordForm').style.display = 'block';
+    document.getElementById('resendConfirmationForm').style.display = 'none';
     document.querySelectorAll('.tab').forEach(item => item.classList.remove('active'));
+    hideMessages();
+}
+
+function showResendConfirmation(email = '') {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('forgotPasswordForm').style.display = 'none';
+    document.getElementById('resendConfirmationForm').style.display = 'block';
+    document.querySelectorAll('.tab').forEach(item => item.classList.remove('active'));
+
+    const confirmationEmail = document.getElementById('confirmationEmail');
+    if (confirmationEmail && email) {
+        confirmationEmail.value = email;
+    }
+
     hideMessages();
 }
 
@@ -86,6 +104,7 @@ function showLoginForm() {
     document.getElementById('loginForm').style.display = 'block';
     document.getElementById('registerForm').style.display = 'none';
     document.getElementById('forgotPasswordForm').style.display = 'none';
+    document.getElementById('resendConfirmationForm').style.display = 'none';
     document.querySelectorAll('.tab')[0]?.classList.add('active');
     document.querySelectorAll('.tab')[1]?.classList.remove('active');
     hideMessages();
@@ -123,7 +142,11 @@ async function login() {
             window.location.href = 'shop.html';
         }, 800);
     } catch (error) {
-        showError(error.message || 'Ошибка входа');
+        const message = error.message || 'Ошибка входа';
+        showError(message);
+        if (message.toLowerCase().includes('email is not confirmed')) {
+            setTimeout(() => showResendConfirmation(email), 800);
+        }
     }
 }
 
@@ -214,5 +237,33 @@ async function sendRecovery() {
         setTimeout(showLoginForm, 2500);
     } catch (error) {
         showError(error.message || 'Ошибка отправки письма');
+    }
+}
+
+async function sendConfirmationAgain() {
+    const email = document.getElementById('confirmationEmail').value.trim();
+
+    if (!email) {
+        showError('Введите email');
+        return;
+    }
+
+    if (!isValidUniversityEmail(email)) {
+        showError('Используйте университетскую почту');
+        return;
+    }
+
+    try {
+        await requestNoContent(API.getResendConfirmationUrl(), {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+            fallbackMessage: 'Ошибка отправки письма подтверждения'
+        });
+
+        showSuccess('Если аккаунт найден и еще не подтвержден, письмо отправлено на email');
+        document.getElementById('confirmationEmail').value = '';
+        setTimeout(showLoginForm, 2500);
+    } catch (error) {
+        showError(error.message || 'Ошибка отправки письма подтверждения');
     }
 }

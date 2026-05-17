@@ -76,6 +76,10 @@ button:hover {
 .forgot-password a:hover {
     text-decoration: underline;
 }
+.link-separator {
+    color: #95a5a6;
+    margin: 0 8px;
+}
 .error-message {
     background-color: #f8d7da;
     color: #721c24;

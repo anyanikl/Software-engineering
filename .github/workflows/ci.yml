@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore backend/FunTest/FunTest.csproj
+
+      - name: Test
+        run: dotnet test backend/FunTest/FunTest.csproj --configuration Release --no-restore --verbosity minimal --logger trx --collect:"XPlat Code Coverage" --settings backend/FunTest/coverlet.runsettings --results-directory TestResults
+
+      - name: Upload test and coverage results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: TestResults

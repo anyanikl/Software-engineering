@@ -15,6 +15,9 @@ namespace FunDto.Models.Contracts.Auth
         public string Password { get; set; } = null!;
 
         [Required]
+        [MinLength(8)]
+        [MaxLength(100)]
+        [Compare(nameof(Password), ErrorMessage = "Passwords do not match")]
         public string ConfirmPassword { get; set; } = null!;
 
         [Required]

@@ -17,13 +17,10 @@ namespace FunApi.Services
 
         public async Task<List<AdvertisementCardDto>> GetAllAsync(int userId)
         {
-            return await _context.Favorites
+            return await _context.Advertisements
                 .AsNoTracking()
-                .Where(x => x.UserId == userId)
-                .Select(x => x.Advertisement)
+                .Where(x => x.Favorites.Any(f => f.UserId == userId))
                 .Where(x => !x.IsDeleted && !x.IsArchived && x.AdvertisementStatus.Name == "approved")
-                .Include(x => x.Seller)
-                .Include(x => x.Images)
                 .OrderByDescending(x => x.CreatedAt)
                 .Select(x => new AdvertisementCardDto
                 {

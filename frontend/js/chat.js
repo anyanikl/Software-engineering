@@ -3,6 +3,12 @@ let chats = [];
 let messages = {};
 let currentChatId = null;
 let pollInterval = null;
+let renderedChatsSignature = '';
+let renderedMessagesSignature = {};
+let isPolling = false;
+
+const CHAT_POLL_INTERVAL_MS = 15000;
+const SCROLL_STICKY_THRESHOLD_PX = 80;
 
 window.onload = async function() {
     await fetchCsrfToken();
@@ -13,7 +19,7 @@ window.onload = async function() {
         return;
     }
 
-    await loadChats();
+    await loadChats({ forceRender: true });
     await checkUrlParams();
     setupRealTimeUpdates();
 };
@@ -24,7 +30,9 @@ window.onbeforeunload = function() {
     }
 };
 
-async function loadChats() {
+async function loadChats(options = {}) {
+    const { forceRender = false, clearOnError = true } = options;
+
     try {
         const response = await fetch(API.getChatsUrl(), {
             credentials: 'include'
@@ -34,16 +42,21 @@ async function loadChats() {
             throw new Error(await parseApiError(response, 'Не удалось загрузить чаты'));
         }
 
-        chats = await response.json();
-        displayChatsList();
+        const loadedChats = await response.json();
+        chats = Array.isArray(loadedChats) ? loadedChats : [];
+        displayChatsList({ forceRender });
     } catch (error) {
         console.error('Chat list load failed:', error);
-        chats = [];
-        displayChatsList();
+        if (clearOnError) {
+            chats = [];
+            displayChatsList({ forceRender: true });
+        }
     }
 }
 
-async function loadMessages(chatId) {
+async function loadMessages(chatId, options = {}) {
+    const { forceRender = false, scrollToBottom = false } = options;
+
     try {
         const response = await fetch(API.getChatUrl(chatId), {
             credentials: 'include'
@@ -55,23 +68,39 @@ async function loadMessages(chatId) {
 
         const chatData = await response.json();
         messages[chatId] = Array.isArray(chatData.messages) ? chatData.messages : [];
-        displayMessages(chatId);
-        await markChatAsRead(chatId);
+        if (currentChatId === chatId) {
+            displayMessages(chatId, { forceRender, scrollToBottom });
+            if (hasUnreadIncomingMessages(messages[chatId])) {
+                await markChatAsRead(chatId);
+            }
+        }
     } catch (error) {
         console.error('Message load failed:', error);
     }
 }
 
-function displayChatsList() {
+function displayChatsList(options = {}) {
+    const { forceRender = false } = options;
     const chatsList = document.getElementById('chatsList');
     if (!chatsList) return;
+
+    chats = chats
+        .slice()
+        .sort((left, right) => new Date(right.lastMessageAt || 0) - new Date(left.lastMessageAt || 0));
+
+    const signature = getChatsSignature(chats);
+    if (!forceRender && signature === renderedChatsSignature) {
+        return;
+    }
+
+    renderedChatsSignature = signature;
+    const scrollContainer = document.querySelector('.chats-sidebar');
+    const previousScrollTop = scrollContainer?.scrollTop ?? 0;
 
     if (chats.length === 0) {
         chatsList.innerHTML = '<div style="padding:20px;text-align:center;color:#95a5a6;">У вас пока нет чатов</div>';
         return;
     }
-
-    chats.sort((left, right) => new Date(right.lastMessageAt || 0) - new Date(left.lastMessageAt || 0));
 
     chatsList.innerHTML = chats.map(chat => `
         <div class="chat-item ${currentChatId === chat.id ? 'active' : ''}" onclick="openChat(${chat.id})">
@@ -86,16 +115,27 @@ function displayChatsList() {
             </div>
         </div>
     `).join('');
+
+    if (scrollContainer) {
+        scrollContainer.scrollTop = previousScrollTop;
+    }
 }
 
 function openChat(chatId) {
+    const isSameChat = currentChatId === chatId;
     currentChatId = chatId;
     const chat = chats.find(item => item.id === chatId);
     if (!chat) return;
 
-    displayChatWindow(chat);
-    loadMessages(chatId);
-    displayChatsList();
+    if (!isSameChat) {
+        displayChatWindow(chat);
+    }
+
+    loadMessages(chatId, {
+        forceRender: !isSameChat,
+        scrollToBottom: !isSameChat
+    });
+    displayChatsList({ forceRender: true });
 }
 
 function displayChatWindow(chat) {
@@ -125,11 +165,21 @@ function displayChatWindow(chat) {
     `;
 }
 
-function displayMessages(chatId) {
+function displayMessages(chatId, options = {}) {
+    const { forceRender = false, scrollToBottom = false } = options;
     const chatMessages = document.getElementById('chatMessages');
     if (!chatMessages) return;
 
     const chatMessagesList = messages[chatId] || [];
+    const signature = getMessagesSignature(chatMessagesList);
+    if (!forceRender && signature === renderedMessagesSignature[chatId]) {
+        return;
+    }
+
+    renderedMessagesSignature[chatId] = signature;
+    const wasNearBottom = isNearBottom(chatMessages);
+    const previousScrollTop = chatMessages.scrollTop;
+
     if (chatMessagesList.length === 0) {
         chatMessages.innerHTML = `
             <div style="text-align:center;padding:40px;color:#95a5a6;">
@@ -148,7 +198,11 @@ function displayMessages(chatId) {
         </div>
     `).join('');
 
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    if (scrollToBottom || wasNearBottom) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    } else {
+        chatMessages.scrollTop = previousScrollTop;
+    }
 }
 
 async function sendMessage() {
@@ -175,8 +229,8 @@ async function sendMessage() {
 
         messages[currentChatId].push(newMessage);
         input.value = '';
-        displayMessages(currentChatId);
-        await loadChats();
+        displayMessages(currentChatId, { forceRender: true, scrollToBottom: true });
+        await loadChats({ forceRender: true });
     } catch (error) {
         showError(error.message || 'Не удалось отправить сообщение');
     }
@@ -190,9 +244,9 @@ async function markChatAsRead(chatId) {
         });
 
         const chat = chats.find(item => item.id === chatId);
-        if (chat) {
+        if (chat && chat.unreadCount > 0) {
             chat.unreadCount = 0;
-            displayChatsList();
+            displayChatsList({ forceRender: true });
         }
     } catch (error) {
         console.error('Mark as read failed:', error);
@@ -200,12 +254,56 @@ async function markChatAsRead(chatId) {
 }
 
 function setupRealTimeUpdates() {
-    pollInterval = setInterval(async () => {
-        await loadChats();
+    pollInterval = setInterval(refreshChatData, CHAT_POLL_INTERVAL_MS);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            refreshChatData();
+        }
+    });
+}
+
+async function refreshChatData() {
+    if (isPolling || document.hidden) {
+        return;
+    }
+
+    isPolling = true;
+    try {
+        await loadChats({ clearOnError: false });
         if (currentChatId) {
             await loadMessages(currentChatId);
         }
-    }, 5000);
+    } finally {
+        isPolling = false;
+    }
+}
+
+function getChatsSignature(chatsList) {
+    return JSON.stringify(chatsList.map(chat => ({
+        id: chat.id,
+        interlocutorName: chat.interlocutorName,
+        advertisementTitle: chat.advertisementTitle,
+        lastMessage: chat.lastMessage,
+        lastMessageAt: chat.lastMessageAt,
+        unreadCount: chat.unreadCount
+    })));
+}
+
+function getMessagesSignature(messagesList) {
+    return JSON.stringify(messagesList.map(message => ({
+        id: message.id,
+        senderId: message.senderId,
+        content: message.content,
+        createdAt: message.createdAt
+    })));
+}
+
+function isNearBottom(element) {
+    return element.scrollHeight - element.scrollTop - element.clientHeight < SCROLL_STICKY_THRESHOLD_PX;
+}
+
+function hasUnreadIncomingMessages(messagesList) {
+    return messagesList.some(message => message.senderId !== currentUser?.id && message.isRead === false);
 }
 
 async function checkUrlParams() {

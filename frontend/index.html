@@ -31,6 +31,8 @@
             
             <div class="forgot-password">
                 <a onclick="showForgotPassword()">Забыли пароль?</a>
+                <span class="link-separator">·</span>
+                <a onclick="showResendConfirmation()">Подтвердить email</a>
             </div>
         </div>
         
@@ -79,6 +81,16 @@
                 <input type="email" id="recoveryEmail" placeholder="user@university.ru">
             </div>
             <button onclick="sendRecovery()">Отправить инструкцию</button>
+            <button onclick="showLoginForm()" style="background-color: #95a5a6; margin-top: 10px;">Назад ко входу</button>
+        </div>
+
+        <div id="resendConfirmationForm" style="display: none;">
+            <h3 style="text-align: center; margin-bottom: 20px;">Подтверждение email</h3>
+            <div>
+                <label for="confirmationEmail"><b>Email:</b></label>
+                <input type="email" id="confirmationEmail" placeholder="user@university.ru">
+            </div>
+            <button onclick="sendConfirmationAgain()">Отправить письмо подтверждения</button>
             <button onclick="showLoginForm()" style="background-color: #95a5a6; margin-top: 10px;">Назад ко входу</button>
         </div>
         

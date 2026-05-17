@@ -5,6 +5,7 @@ using FunApi.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using System.Threading.RateLimiting;
@@ -18,28 +19,9 @@ namespace FunApi
             var builder = WebApplication.CreateBuilder(args);
 
             var isDevelopment = builder.Environment.IsDevelopment();
-            var allowedOrigins = builder.Configuration["CORS_ALLOWED_ORIGINS"]?
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(origin => !string.IsNullOrWhiteSpace(origin))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray()
-                ?? new[]
-                {
-                    "http://localhost:3000",
-                    "http://127.0.0.1:3000",
-                    "https://localhost",
-                    "https://127.0.0.1"
-                };
+            var allowedOrigins = ResolveAllowedOrigins(builder.Configuration);
 
-            builder.Services.Configure<ForwardedHeadersOptions>(options =>
-            {
-                options.ForwardedHeaders =
-                    ForwardedHeaders.XForwardedFor |
-                    ForwardedHeaders.XForwardedProto |
-                    ForwardedHeaders.XForwardedHost;
-                options.KnownNetworks.Clear();
-                options.KnownProxies.Clear();
-            });
+            builder.Services.Configure<ForwardedHeadersOptions>(ConfigureForwardedHeaders);
 
             builder.Services.AddControllersWithViews(options =>
             {
@@ -69,27 +51,7 @@ namespace FunApi
             builder.Services.AddScoped<IAccessControlService, AccessControlService>();
 
             builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-                .AddCookie(options =>
-                {
-                    options.Cookie.Name = ".AspNetCore.Cookies";
-                    options.Cookie.HttpOnly = true;
-                    options.Cookie.Path = "/";
-                    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-                    options.Cookie.SameSite = SameSiteMode.Lax;
-                    options.ExpireTimeSpan = TimeSpan.FromDays(30);
-                    options.SlidingExpiration = true;
-                    options.EventsType = typeof(AuthCookieEvents);
-                    options.Events.OnRedirectToLogin = ctx =>
-                    {
-                        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                        return Task.CompletedTask;
-                    };
-                    options.Events.OnRedirectToAccessDenied = ctx =>
-                    {
-                        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
-                        return Task.CompletedTask;
-                    };
-                });
+                .AddCookie(ConfigureApplicationCookie);
             builder.Services.AddAuthorization();
 
             builder.Services.AddCors(options =>
@@ -114,20 +76,7 @@ namespace FunApi
                 options.HeaderName = "X-XSRF-TOKEN";
             });
 
-            builder.Services.AddRateLimiter(options =>
-            {
-                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
-                    RateLimitPartition.GetFixedWindowLimiter(
-                        partitionKey: "global",
-                        factory: _ => new FixedWindowRateLimiterOptions
-                        {
-                            PermitLimit = 100,
-                            Window = TimeSpan.FromMinutes(1),
-                            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                            QueueLimit = 0
-                        }));
-            });
+            builder.Services.AddRateLimiter(ConfigureRateLimiter);
 
             builder.Logging.ClearProviders();
             builder.Logging.AddConsole();
@@ -163,14 +112,7 @@ namespace FunApi
                     context.Response.StatusCode = StatusCodes.Status500InternalServerError;
                     context.Response.ContentType = "application/json";
                     var exception = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
-                    var statusCode = exception switch
-                    {
-                        ForbiddenException => StatusCodes.Status403Forbidden,
-                        KeyNotFoundException => StatusCodes.Status404NotFound,
-                        DomainValidationException => StatusCodes.Status400BadRequest,
-                        ArgumentException => StatusCodes.Status400BadRequest,
-                        _ => StatusCodes.Status500InternalServerError
-                    };
+                    var statusCode = ResolveExceptionStatusCode(exception);
 
                     context.Response.StatusCode = statusCode;
                     if (statusCode != StatusCodes.Status500InternalServerError)
@@ -204,6 +146,71 @@ namespace FunApi
             app.MapControllers();
 
             app.Run();
+        }
+
+        internal static string[] ResolveAllowedOrigins(IConfiguration configuration)
+        {
+            return configuration["CORS_ALLOWED_ORIGINS"]?
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(origin => !string.IsNullOrWhiteSpace(origin))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray()
+                ?? new[]
+                {
+                    "http://localhost:3000",
+                    "http://127.0.0.1:3000",
+                    "https://localhost",
+                    "https://127.0.0.1"
+                };
+        }
+
+        internal static void ConfigureForwardedHeaders(ForwardedHeadersOptions options)
+        {
+            options.ForwardedHeaders =
+                ForwardedHeaders.XForwardedFor |
+                ForwardedHeaders.XForwardedProto |
+                ForwardedHeaders.XForwardedHost;
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
+        }
+
+        internal static void ConfigureApplicationCookie(CookieAuthenticationOptions options)
+        {
+            options.Cookie.Name = ".AspNetCore.Cookies";
+            options.Cookie.HttpOnly = true;
+            options.Cookie.Path = "/";
+            options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            options.Cookie.SameSite = SameSiteMode.Lax;
+            options.ExpireTimeSpan = TimeSpan.FromDays(30);
+            options.SlidingExpiration = true;
+            options.EventsType = typeof(AuthCookieEvents);
+        }
+
+        internal static void ConfigureRateLimiter(RateLimiterOptions options)
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: "global",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 100,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    }));
+        }
+
+        internal static int ResolveExceptionStatusCode(Exception? exception)
+        {
+            return exception switch
+            {
+                ForbiddenException => StatusCodes.Status403Forbidden,
+                KeyNotFoundException => StatusCodes.Status404NotFound,
+                DomainValidationException => StatusCodes.Status400BadRequest,
+                ArgumentException => StatusCodes.Status400BadRequest,
+                _ => StatusCodes.Status500InternalServerError
+            };
         }
     }
 }

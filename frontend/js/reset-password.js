@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     init();
 });
 
-function init() {
+async function init() {
     resetToken = getTokenFromUrl();
     
     if (!resetToken) {
@@ -12,6 +12,8 @@ function init() {
         disableForm();
         return;
     }
+
+    await fetchCsrfToken();
     
     setupEventListeners();
 }
@@ -170,30 +172,23 @@ async function submitResetPassword() {
     submitBtn.disabled = true;
     
     try {
-        // Используем API из api-config.js
-        const response = await fetch(API.getResetPasswordUrl(), {
+        await requestNoContent(API.getResetPasswordUrl(), {
             method: 'POST',
-            headers: getSecureHeaders(true),
             body: JSON.stringify({
                 token: resetToken,
-                newPassword: newPassword,
-                confirmPassword: confirmPassword
+                newPassword,
+                confirmPassword
             }),
-            credentials: 'include'
+            fallbackMessage: 'Ошибка сброса пароля'
         });
-        
-        if (response.status === 204 || response.ok) {
-            showSuccess('✅ Пароль успешно изменен!');
-            setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 2000);
-        } else {
-            const data = await response.json().catch(() => ({}));
-            showError(data.message || data.errors?.join(', ') || 'Ошибка сброса пароля');
-        }
+
+        showSuccess('✅ Пароль успешно изменен!');
+        setTimeout(() => {
+            window.location.href = 'index.html';
+        }, 2000);
     } catch (error) {
         console.error('Ошибка:', error);
-        showError('Ошибка соединения с сервером');
+        showError(error.message || 'Ошибка соединения с сервером');
     } finally {
         submitBtn.textContent = originalText;
         submitBtn.disabled = false;
